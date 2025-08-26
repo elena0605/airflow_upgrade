@@ -1,0 +1,5 @@
+category,count,percentage
+EXTRA_LONG (>5min),64,0.34
+LONG (1-5min),1645,8.69
+MID (15-60s),7085,37.42
+SHORT (<15s),10139,53.55

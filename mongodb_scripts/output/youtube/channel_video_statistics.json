@@ -1,0 +1,1432 @@
+[
+  {
+    "totalVideos": 6073,
+    "uniqueChannels": 44,
+    "channelsWithExactMatch": 41,
+    "channelsWithTrimmedMatch": 3,
+    "channelsWithoutVideos": [
+      {
+        "channel_id": "UCKlZpjA9AH9JJQ9EO6Ek9Yg",
+        "title": "Acid",
+        "subscriber_count": "442000",
+        "declared_video_count": "772"
+      }
+    ],
+    "totalChannelsInStats": 45,
+    "channelsWithNoMatch": [],
+    "channelsMatchedAfterTrimming": [
+      {
+        "channelTitle": "MONSTER tube",
+        "channelIdTrimmed": "UCw_HtXdr-jr7A0GuAEEOo9A",
+        "idMatchStatus": "Matched After Trimming",
+        "channelId": "UCw_HtXdr-jr7A0GuAEEOo9A    ",
+        "fetchedVideosFor2024": 350,
+        "totalVideosForChannel": 965,
+        "subscriberCount": 322000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 61304882,
+            "average": 175156.81,
+            "max": 1410374,
+            "min": 19190
+          },
+          "likes": {
+            "total": 1834027,
+            "average": 5240.08,
+            "max": 39238,
+            "min": 995
+          },
+          "comments": {
+            "total": 40363,
+            "average": 115.32,
+            "max": 866,
+            "min": 3
+          }
+        }
+      },
+      {
+        "channelTitle": "ISAE",
+        "channelIdTrimmed": "UCa1Hy6QFbZLAHt97ABM3GVg",
+        "idMatchStatus": "Matched After Trimming",
+        "channelId": "UCa1Hy6QFbZLAHt97ABM3GVg ",
+        "fetchedVideosFor2024": 17,
+        "totalVideosForChannel": 109,
+        "subscriberCount": 210000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 1418107,
+            "average": 83418.06,
+            "max": 158249,
+            "min": 28054
+          },
+          "likes": {
+            "total": 71165,
+            "average": 4186.18,
+            "max": 10064,
+            "min": 1019
+          },
+          "comments": {
+            "total": 6082,
+            "average": 357.76,
+            "max": 2316,
+            "min": 0
+          }
+        }
+      },
+      {
+        "channelTitle": "Sam and Colby",
+        "channelIdTrimmed": "UCg3gzldyhCHJjY7AWWTNPPA",
+        "idMatchStatus": "Matched After Trimming",
+        "channelId": "UCg3gzldyhCHJjY7AWWTNPPA    ",
+        "fetchedVideosFor2024": 11,
+        "totalVideosForChannel": 355,
+        "subscriberCount": 13700000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 126073522,
+            "average": 11461229.27,
+            "max": 19754196,
+            "min": 8127859
+          },
+          "likes": {
+            "total": 4693195,
+            "average": 426654.09,
+            "max": 698224,
+            "min": 261733
+          },
+          "comments": {
+            "total": 436437,
+            "average": 39676.09,
+            "max": 97516,
+            "min": 24066
+          }
+        }
+      }
+    ],
+    "channelStats": [
+      {
+        "channelTitle": "Royalistiq",
+        "channelIdTrimmed": "UC6UTBWQJOvtGIjdBcC7WwPw",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UC6UTBWQJOvtGIjdBcC7WwPw",
+        "fetchedVideosFor2024": 501,
+        "totalVideosForChannel": 3872,
+        "subscriberCount": 1020000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 22576938,
+            "average": 45063.75,
+            "max": 743236,
+            "min": 5734
+          },
+          "likes": {
+            "total": 694304,
+            "average": 1385.84,
+            "max": 19984,
+            "min": 243
+          },
+          "comments": {
+            "total": 13609,
+            "average": 27.16,
+            "max": 468,
+            "min": 0
+          }
+        }
+      },
+      {
+        "channelTitle": "ESPN",
+        "channelIdTrimmed": "UCiWLfSweyRNmLpgEHekhoAg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCiWLfSweyRNmLpgEHekhoAg",
+        "fetchedVideosFor2024": 499,
+        "totalVideosForChannel": 90283,
+        "subscriberCount": 13400000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 791046555,
+            "average": 1585263.64,
+            "max": 83639009,
+            "min": 16458
+          },
+          "likes": {
+            "total": 25419003,
+            "average": 50939.89,
+            "max": 2740388,
+            "min": 38
+          },
+          "comments": {
+            "total": 664727,
+            "average": 1332.12,
+            "max": 55253,
+            "min": 2
+          }
+        }
+      },
+      {
+        "channelTitle": "Stray Kids",
+        "channelIdTrimmed": "UC9rMiEjNaCSsebs31MRDCRA",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UC9rMiEjNaCSsebs31MRDCRA",
+        "fetchedVideosFor2024": 386,
+        "totalVideosForChannel": 1473,
+        "subscriberCount": 19300000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 1070180268,
+            "average": 2772487.74,
+            "max": 71626068,
+            "min": 149720
+          },
+          "likes": {
+            "total": 128015149,
+            "average": 331645.46,
+            "max": 2682480,
+            "min": 67492
+          },
+          "comments": {
+            "total": 2149684,
+            "average": 5569.13,
+            "max": 54401,
+            "min": 0
+          }
+        }
+      },
+      {
+        "channelTitle": "MONSTER tube",
+        "channelIdTrimmed": "UCw_HtXdr-jr7A0GuAEEOo9A",
+        "idMatchStatus": "Matched After Trimming",
+        "channelId": "UCw_HtXdr-jr7A0GuAEEOo9A    ",
+        "fetchedVideosFor2024": 350,
+        "totalVideosForChannel": 965,
+        "subscriberCount": 322000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 61304882,
+            "average": 175156.81,
+            "max": 1410374,
+            "min": 19190
+          },
+          "likes": {
+            "total": 1834027,
+            "average": 5240.08,
+            "max": 39238,
+            "min": 995
+          },
+          "comments": {
+            "total": 40363,
+            "average": 115.32,
+            "max": 866,
+            "min": 3
+          }
+        }
+      },
+      {
+        "channelTitle": "Feyenoord",
+        "channelIdTrimmed": "UCg_DGzRRIQlXpHxCrMMiAIQ",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCg_DGzRRIQlXpHxCrMMiAIQ",
+        "fetchedVideosFor2024": 345,
+        "totalVideosForChannel": 4435,
+        "subscriberCount": 218000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 9548939,
+            "average": 27678.08,
+            "max": 1209204,
+            "min": 1338
+          },
+          "likes": {
+            "total": 242031,
+            "average": 701.54,
+            "max": 28033,
+            "min": 24
+          },
+          "comments": {
+            "total": 9804,
+            "average": 28.42,
+            "max": 560,
+            "min": 0
+          }
+        }
+      },
+      {
+        "channelTitle": "Yarasky",
+        "channelIdTrimmed": "UCOj5e5vveMzgwv2hHOFODLA",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCOj5e5vveMzgwv2hHOFODLA",
+        "fetchedVideosFor2024": 325,
+        "totalVideosForChannel": 10944,
+        "subscriberCount": 794000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 11389628,
+            "average": 35045.01,
+            "max": 132732,
+            "min": 5446
+          },
+          "likes": {
+            "total": 489288,
+            "average": 1505.5,
+            "max": 6579,
+            "min": 253
+          },
+          "comments": {
+            "total": 33969,
+            "average": 104.52,
+            "max": 917,
+            "min": 3
+          }
+        }
+      },
+      {
+        "channelTitle": "GameMeneer",
+        "channelIdTrimmed": "UCU0TjDaglN5awRHKY_tThzA",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCU0TjDaglN5awRHKY_tThzA",
+        "fetchedVideosFor2024": 317,
+        "totalVideosForChannel": 4495,
+        "subscriberCount": 1190000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 22080901,
+            "average": 69655.84,
+            "max": 680102,
+            "min": 4790
+          },
+          "likes": {
+            "total": 851769,
+            "average": 2686.97,
+            "max": 25713,
+            "min": 123
+          },
+          "comments": {
+            "total": 30820,
+            "average": 97.22,
+            "max": 914,
+            "min": 0
+          }
+        }
+      },
+      {
+        "channelTitle": "JordyStorm",
+        "channelIdTrimmed": "UCxmFU73cNUBMdmAcFtusHMg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCxmFU73cNUBMdmAcFtusHMg",
+        "fetchedVideosFor2024": 277,
+        "totalVideosForChannel": 1206,
+        "subscriberCount": 317000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 9539740,
+            "average": 34439.49,
+            "max": 530229,
+            "min": 6472
+          },
+          "likes": {
+            "total": 322317,
+            "average": 1163.6,
+            "max": 10969,
+            "min": 308
+          },
+          "comments": {
+            "total": 31066,
+            "average": 112.15,
+            "max": 2536,
+            "min": 0
+          }
+        }
+      },
+      {
+        "channelTitle": "Gio",
+        "channelIdTrimmed": "UCzK9UevsDrNpuPON_H1EepA",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCzK9UevsDrNpuPON_H1EepA",
+        "fetchedVideosFor2024": 253,
+        "totalVideosForChannel": 3168,
+        "subscriberCount": 1400000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 52653824,
+            "average": 208117.88,
+            "max": 922507,
+            "min": 107141
+          },
+          "likes": {
+            "total": 994774,
+            "average": 3931.91,
+            "max": 22048,
+            "min": 2074
+          },
+          "comments": {
+            "total": 98201,
+            "average": 388.15,
+            "max": 2095,
+            "min": 112
+          }
+        }
+      },
+      {
+        "channelTitle": "EnzoKnol",
+        "channelIdTrimmed": "UCh8bTHe4T8o7RIU7R5EPX-w",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCh8bTHe4T8o7RIU7R5EPX-w",
+        "fetchedVideosFor2024": 247,
+        "totalVideosForChannel": 6102,
+        "subscriberCount": 2900000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 103004143,
+            "average": 417020.82,
+            "max": 1970143,
+            "min": 60230
+          },
+          "likes": {
+            "total": 2442170,
+            "average": 9887.33,
+            "max": 53072,
+            "min": 0
+          },
+          "comments": {
+            "total": 166363,
+            "average": 673.53,
+            "max": 7463,
+            "min": 0
+          }
+        }
+      },
+      {
+        "channelTitle": "Paraduze",
+        "channelIdTrimmed": "UCaeE4Ci4qayB1i5NrlQMyEQ",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCaeE4Ci4qayB1i5NrlQMyEQ",
+        "fetchedVideosFor2024": 231,
+        "totalVideosForChannel": 2225,
+        "subscriberCount": 554000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 19016769,
+            "average": 82323.68,
+            "max": 557890,
+            "min": 7737
+          },
+          "likes": {
+            "total": 433010,
+            "average": 1874.5,
+            "max": 14425,
+            "min": 292
+          },
+          "comments": {
+            "total": 24442,
+            "average": 105.81,
+            "max": 3364,
+            "min": 7
+          }
+        }
+      },
+      {
+        "channelTitle": "SSundee",
+        "channelIdTrimmed": "UCke6I9N4KfC968-yRcd5YRg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCke6I9N4KfC968-yRcd5YRg",
+        "fetchedVideosFor2024": 221,
+        "totalVideosForChannel": 3706,
+        "subscriberCount": 24700000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 547230588,
+            "average": 2476156.51,
+            "max": 8494294,
+            "min": 748387
+          },
+          "likes": {
+            "total": 12161237,
+            "average": 55028.22,
+            "max": 196657,
+            "min": 22483
+          },
+          "comments": {
+            "total": 470315,
+            "average": 2128.12,
+            "max": 10450,
+            "min": 898
+          }
+        }
+      },
+      {
+        "channelTitle": "TOUZANI TV",
+        "channelIdTrimmed": "UCto2NI994eyiEgP2eB3Jwdg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCto2NI994eyiEgP2eB3Jwdg",
+        "fetchedVideosFor2024": 185,
+        "totalVideosForChannel": 901,
+        "subscriberCount": 1350000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 98100892,
+            "average": 530275.09,
+            "max": 36236842,
+            "min": 23410
+          },
+          "likes": {
+            "total": 2173655,
+            "average": 11749.49,
+            "max": 783739,
+            "min": 0
+          },
+          "comments": {
+            "total": 27789,
+            "average": 150.21,
+            "max": 2444,
+            "min": 6
+          }
+        }
+      },
+      {
+        "channelTitle": "StukTV",
+        "channelIdTrimmed": "UCK5Fn7Z6-iFMdxEye2FsKXg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCK5Fn7Z6-iFMdxEye2FsKXg",
+        "fetchedVideosFor2024": 182,
+        "totalVideosForChannel": 1334,
+        "subscriberCount": 2650000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 38924490,
+            "average": 213870.82,
+            "max": 1855208,
+            "min": 22741
+          },
+          "likes": {
+            "total": 1193982,
+            "average": 6560.34,
+            "max": 70982,
+            "min": 0
+          },
+          "comments": {
+            "total": 40389,
+            "average": 221.92,
+            "max": 4413,
+            "min": 7
+          }
+        }
+      },
+      {
+        "channelTitle": "IShowSpeed",
+        "channelIdTrimmed": "UCWsDFcIhY2DBi3GB5uykGXA",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCWsDFcIhY2DBi3GB5uykGXA",
+        "fetchedVideosFor2024": 178,
+        "totalVideosForChannel": 1533,
+        "subscriberCount": 36300000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 1033514575,
+            "average": 5806261.66,
+            "max": 162176683,
+            "min": 892848
+          },
+          "likes": {
+            "total": 39852673,
+            "average": 223891.42,
+            "max": 6437381,
+            "min": 31095
+          },
+          "comments": {
+            "total": 1065913,
+            "average": 5988.28,
+            "max": 52367,
+            "min": 524
+          }
+        }
+      },
+      {
+        "channelTitle": "Bankzitters",
+        "channelIdTrimmed": "UC72_FRBE63kbHDYeKgc5HDg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UC72_FRBE63kbHDYeKgc5HDg",
+        "fetchedVideosFor2024": 144,
+        "totalVideosForChannel": 643,
+        "subscriberCount": 1130000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 194005016,
+            "average": 1347257.06,
+            "max": 4507406,
+            "min": 231299
+          },
+          "likes": {
+            "total": 5013414,
+            "average": 34815.38,
+            "max": 113518,
+            "min": 7105
+          },
+          "comments": {
+            "total": 99103,
+            "average": 688.22,
+            "max": 7897,
+            "min": 22
+          }
+        }
+      },
+      {
+        "channelTitle": "Markiplier",
+        "channelIdTrimmed": "UC7_YxT-KID8kRbqZo7MyscQ",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UC7_YxT-KID8kRbqZo7MyscQ",
+        "fetchedVideosFor2024": 122,
+        "totalVideosForChannel": 5706,
+        "subscriberCount": 37400000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 372903811,
+            "average": 3056588.61,
+            "max": 8818308,
+            "min": 751153
+          },
+          "likes": {
+            "total": 19349437,
+            "average": 158601.94,
+            "max": 468734,
+            "min": 52885
+          },
+          "comments": {
+            "total": 652058,
+            "average": 5344.74,
+            "max": 52484,
+            "min": 1108
+          }
+        }
+      },
+      {
+        "channelTitle": "Qucee",
+        "channelIdTrimmed": "UCfqnx4kPKA4kaaUDODirUwg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCfqnx4kPKA4kaaUDODirUwg",
+        "fetchedVideosFor2024": 107,
+        "totalVideosForChannel": 1472,
+        "subscriberCount": 919000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 24254276,
+            "average": 226675.48,
+            "max": 1418568,
+            "min": 14987
+          },
+          "likes": {
+            "total": 706224,
+            "average": 6600.22,
+            "max": 38544,
+            "min": 496
+          },
+          "comments": {
+            "total": 26153,
+            "average": 244.42,
+            "max": 2164,
+            "min": 0
+          }
+        }
+      },
+      {
+        "channelTitle": "Chatmo",
+        "channelIdTrimmed": "UC8gksu87NaSOe6_SMRQeewg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UC8gksu87NaSOe6_SMRQeewg",
+        "fetchedVideosFor2024": 101,
+        "totalVideosForChannel": 141,
+        "subscriberCount": 703000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 172666517,
+            "average": 1709569.48,
+            "max": 62940977,
+            "min": 9656
+          },
+          "likes": {
+            "total": 6893167,
+            "average": 68249.18,
+            "max": 2991889,
+            "min": 0
+          },
+          "comments": {
+            "total": 26592,
+            "average": 263.29,
+            "max": 4187,
+            "min": 3
+          }
+        }
+      },
+      {
+        "channelTitle": "FAMILIE LAKAP",
+        "channelIdTrimmed": "UCnBr_yJS0OTvMVu7jeqaPwA",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCnBr_yJS0OTvMVu7jeqaPwA",
+        "fetchedVideosFor2024": 96,
+        "totalVideosForChannel": 1037,
+        "subscriberCount": 805000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 28747760,
+            "average": 299455.83,
+            "max": 907053,
+            "min": 101725
+          },
+          "likes": {
+            "total": 546557,
+            "average": 5693.3,
+            "max": 17199,
+            "min": 0
+          },
+          "comments": {
+            "total": 33809,
+            "average": 352.18,
+            "max": 5433,
+            "min": 0
+          }
+        }
+      },
+      {
+        "channelTitle": "The Game Theorists",
+        "channelIdTrimmed": "UCo_IB5145EVNcf8hw1Kku7w",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCo_IB5145EVNcf8hw1Kku7w",
+        "fetchedVideosFor2024": 82,
+        "totalVideosForChannel": 758,
+        "subscriberCount": 19500000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 229918765,
+            "average": 2803887.38,
+            "max": 21075634,
+            "min": 170464
+          },
+          "likes": {
+            "total": 15098706,
+            "average": 184130.56,
+            "max": 2175882,
+            "min": 11809
+          },
+          "comments": {
+            "total": 893439,
+            "average": 10895.6,
+            "max": 340971,
+            "min": 228
+          }
+        }
+      },
+      {
+        "channelTitle": "MSA previously My Story Animated",
+        "channelIdTrimmed": "UCYzEMRKqrh01-tauv7MYyVQ",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCYzEMRKqrh01-tauv7MYyVQ",
+        "fetchedVideosFor2024": 78,
+        "totalVideosForChannel": 937,
+        "subscriberCount": 23600000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 655460692,
+            "average": 8403342.21,
+            "max": 18722062,
+            "min": 606292
+          },
+          "likes": {
+            "total": 12486891,
+            "average": 160088.35,
+            "max": 396147,
+            "min": 52103
+          },
+          "comments": {
+            "total": 584915,
+            "average": 7498.91,
+            "max": 42660,
+            "min": 260
+          }
+        }
+      },
+      {
+        "channelTitle": "Sturniolo Triplets",
+        "channelIdTrimmed": "UCfA5CSlYGseqSeOhsiiZTfw",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCfA5CSlYGseqSeOhsiiZTfw",
+        "fetchedVideosFor2024": 75,
+        "totalVideosForChannel": 367,
+        "subscriberCount": 7400000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 147602939,
+            "average": 1968039.19,
+            "max": 6302633,
+            "min": 560316
+          },
+          "likes": {
+            "total": 8216625,
+            "average": 109555,
+            "max": 258626,
+            "min": 63166
+          },
+          "comments": {
+            "total": 478626,
+            "average": 6381.68,
+            "max": 15111,
+            "min": 1628
+          }
+        }
+      },
+      {
+        "channelTitle": "HARM",
+        "channelIdTrimmed": "UCdG3OPC1WvPBWFvnfmYnWNg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCdG3OPC1WvPBWFvnfmYnWNg",
+        "fetchedVideosFor2024": 74,
+        "totalVideosForChannel": 1978,
+        "subscriberCount": 911000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 25071041,
+            "average": 338797.85,
+            "max": 1705273,
+            "min": 52976
+          },
+          "likes": {
+            "total": 663480,
+            "average": 8965.95,
+            "max": 51109,
+            "min": 1795
+          },
+          "comments": {
+            "total": 10766,
+            "average": 145.49,
+            "max": 940,
+            "min": 9
+          }
+        }
+      },
+      {
+        "channelTitle": "Laatkomers",
+        "channelIdTrimmed": "UCTazmNdltdzNs2_a9S9M__g",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCTazmNdltdzNs2_a9S9M__g",
+        "fetchedVideosFor2024": 66,
+        "totalVideosForChannel": 114,
+        "subscriberCount": 128000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 7830991,
+            "average": 118651.38,
+            "max": 391372,
+            "min": 6141
+          },
+          "likes": {
+            "total": 197380,
+            "average": 2990.61,
+            "max": 8991,
+            "min": 215
+          },
+          "comments": {
+            "total": 7084,
+            "average": 107.33,
+            "max": 810,
+            "min": 2
+          }
+        }
+      },
+      {
+        "channelTitle": "Rijk Hofman",
+        "channelIdTrimmed": "UClOXnNzA9RI2dWd-bhIrwKg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UClOXnNzA9RI2dWd-bhIrwKg",
+        "fetchedVideosFor2024": 63,
+        "totalVideosForChannel": 428,
+        "subscriberCount": 401000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 34089253,
+            "average": 541099.25,
+            "max": 817974,
+            "min": 343718
+          },
+          "likes": {
+            "total": 772679,
+            "average": 12264.75,
+            "max": 19024,
+            "min": 7799
+          },
+          "comments": {
+            "total": 24098,
+            "average": 382.51,
+            "max": 1115,
+            "min": 134
+          }
+        }
+      },
+      {
+        "channelTitle": "Glowmovies",
+        "channelIdTrimmed": "UCVW-rO63J7bTMCxG9RsT7Pg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCVW-rO63J7bTMCxG9RsT7Pg",
+        "fetchedVideosFor2024": 63,
+        "totalVideosForChannel": 490,
+        "subscriberCount": 1060000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 30200926,
+            "average": 479379.78,
+            "max": 1508084,
+            "min": 57057
+          },
+          "likes": {
+            "total": 714981,
+            "average": 11348.9,
+            "max": 46769,
+            "min": 2353
+          },
+          "comments": {
+            "total": 51542,
+            "average": 818.13,
+            "max": 5008,
+            "min": 21
+          }
+        }
+      },
+      {
+        "channelTitle": "MrBeast",
+        "channelIdTrimmed": "UCX6OQ3DkcsbYNE6H8uQQuVA",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCX6OQ3DkcsbYNE6H8uQQuVA",
+        "fetchedVideosFor2024": 62,
+        "totalVideosForChannel": 849,
+        "subscriberCount": 367000000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 15454400049,
+            "average": 249264516.92,
+            "max": 628652206,
+            "min": 79843350
+          },
+          "likes": {
+            "total": 553657524,
+            "average": 8929960.06,
+            "max": 25401529,
+            "min": 3112961
+          },
+          "comments": {
+            "total": 4558575,
+            "average": 73525.4,
+            "max": 782826,
+            "min": 3375
+          }
+        }
+      },
+      {
+        "channelTitle": "Sidemen",
+        "channelIdTrimmed": "UCDogdKl7t7NHzQ95aEwkdMw",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCDogdKl7t7NHzQ95aEwkdMw",
+        "fetchedVideosFor2024": 56,
+        "totalVideosForChannel": 401,
+        "subscriberCount": 22000000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 571826636,
+            "average": 10211189.93,
+            "max": 36232098,
+            "min": 632375
+          },
+          "likes": {
+            "total": 16003373,
+            "average": 285774.52,
+            "max": 634331,
+            "min": 42555
+          },
+          "comments": {
+            "total": 456790,
+            "average": 8156.96,
+            "max": 17007,
+            "min": 157
+          }
+        }
+      },
+      {
+        "channelTitle": "Hanwe",
+        "channelIdTrimmed": "UCJx1izJJh2GSQnn9Rmh3mAQ",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCJx1izJJh2GSQnn9Rmh3mAQ",
+        "fetchedVideosFor2024": 55,
+        "totalVideosForChannel": 727,
+        "subscriberCount": 1130000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 13411150,
+            "average": 243839.09,
+            "max": 704270,
+            "min": 117425
+          },
+          "likes": {
+            "total": 410030,
+            "average": 7455.09,
+            "max": 15733,
+            "min": 4203
+          },
+          "comments": {
+            "total": 22351,
+            "average": 406.38,
+            "max": 1681,
+            "min": 126
+          }
+        }
+      },
+      {
+        "channelTitle": "Stefan de Vries",
+        "channelIdTrimmed": "UCOLAaOyjwTyPRb4NtN0D40w",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCOLAaOyjwTyPRb4NtN0D40w",
+        "fetchedVideosFor2024": 49,
+        "totalVideosForChannel": 463,
+        "subscriberCount": 1030000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 20509307,
+            "average": 418557.29,
+            "max": 826626,
+            "min": 132662
+          },
+          "likes": {
+            "total": 538523,
+            "average": 10990.27,
+            "max": 19049,
+            "min": 6180
+          },
+          "comments": {
+            "total": 23959,
+            "average": 488.96,
+            "max": 1820,
+            "min": 126
+          }
+        }
+      },
+      {
+        "channelTitle": "TommyInnit",
+        "channelIdTrimmed": "UC5p_l5ZeB_wGjO_yDXwiqvw",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UC5p_l5ZeB_wGjO_yDXwiqvw",
+        "fetchedVideosFor2024": 49,
+        "totalVideosForChannel": 507,
+        "subscriberCount": 15100000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 60672327,
+            "average": 1238210.76,
+            "max": 3689403,
+            "min": 223807
+          },
+          "likes": {
+            "total": 4536577,
+            "average": 92583.2,
+            "max": 315978,
+            "min": 15848
+          },
+          "comments": {
+            "total": 251726,
+            "average": 5137.27,
+            "max": 26880,
+            "min": 376
+          }
+        }
+      },
+      {
+        "channelTitle": "CreaChick",
+        "channelIdTrimmed": "UCqU8DkxHjEskQYuNiKS8hdQ",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCqU8DkxHjEskQYuNiKS8hdQ",
+        "fetchedVideosFor2024": 49,
+        "totalVideosForChannel": 450,
+        "subscriberCount": 334000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 19108778,
+            "average": 389975.06,
+            "max": 686258,
+            "min": 113473
+          },
+          "likes": {
+            "total": 361185,
+            "average": 7371.12,
+            "max": 20919,
+            "min": 4172
+          },
+          "comments": {
+            "total": 43999,
+            "average": 897.94,
+            "max": 2749,
+            "min": 125
+          }
+        }
+      },
+      {
+        "channelTitle": "Kriekel",
+        "channelIdTrimmed": "UC1OhWZCBKrxR-Kxe72gmdHQ",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UC1OhWZCBKrxR-Kxe72gmdHQ",
+        "fetchedVideosFor2024": 37,
+        "totalVideosForChannel": 145,
+        "subscriberCount": 441000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 17399725,
+            "average": 470262.84,
+            "max": 1266155,
+            "min": 68678
+          },
+          "likes": {
+            "total": 337673,
+            "average": 9126.3,
+            "max": 19682,
+            "min": 2323
+          },
+          "comments": {
+            "total": 14285,
+            "average": 386.08,
+            "max": 967,
+            "min": 10
+          }
+        }
+      },
+      {
+        "channelTitle": "Jade Anna",
+        "channelIdTrimmed": "UCF5gjrsLkNqI5dbFVpokkNw",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCF5gjrsLkNqI5dbFVpokkNw",
+        "fetchedVideosFor2024": 33,
+        "totalVideosForChannel": 503,
+        "subscriberCount": 293000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 6231766,
+            "average": 188841.39,
+            "max": 306545,
+            "min": 124755
+          },
+          "likes": {
+            "total": 97070,
+            "average": 2941.52,
+            "max": 5916,
+            "min": 1752
+          },
+          "comments": {
+            "total": 5103,
+            "average": 154.64,
+            "max": 409,
+            "min": 72
+          }
+        }
+      },
+      {
+        "channelTitle": "Beta Squad",
+        "channelIdTrimmed": "UCxOzbkk0bdVl6-tH1Fcajfg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCxOzbkk0bdVl6-tH1Fcajfg",
+        "fetchedVideosFor2024": 29,
+        "totalVideosForChannel": 159,
+        "subscriberCount": 10400000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 213142127,
+            "average": 7349728.52,
+            "max": 21144678,
+            "min": 1515477
+          },
+          "likes": {
+            "total": 6067785,
+            "average": 209233.97,
+            "max": 526179,
+            "min": 50281
+          },
+          "comments": {
+            "total": 181328,
+            "average": 6252.69,
+            "max": 17710,
+            "min": 1703
+          }
+        }
+      },
+      {
+        "channelTitle": "AMP",
+        "channelIdTrimmed": "UCJbYdyufHR-cxOuY96KIoqA",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCJbYdyufHR-cxOuY96KIoqA",
+        "fetchedVideosFor2024": 25,
+        "totalVideosForChannel": 221,
+        "subscriberCount": 7090000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 135420887,
+            "average": 5416835.48,
+            "max": 16201250,
+            "min": 1932190
+          },
+          "likes": {
+            "total": 4507255,
+            "average": 180290.2,
+            "max": 671427,
+            "min": 66306
+          },
+          "comments": {
+            "total": 167757,
+            "average": 6710.28,
+            "max": 58411,
+            "min": 1294
+          }
+        }
+      },
+      {
+        "channelTitle": "ISAE",
+        "channelIdTrimmed": "UCa1Hy6QFbZLAHt97ABM3GVg",
+        "idMatchStatus": "Matched After Trimming",
+        "channelId": "UCa1Hy6QFbZLAHt97ABM3GVg ",
+        "fetchedVideosFor2024": 17,
+        "totalVideosForChannel": 109,
+        "subscriberCount": 210000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 1418107,
+            "average": 83418.06,
+            "max": 158249,
+            "min": 28054
+          },
+          "likes": {
+            "total": 71165,
+            "average": 4186.18,
+            "max": 10064,
+            "min": 1019
+          },
+          "comments": {
+            "total": 6082,
+            "average": 357.76,
+            "max": 2316,
+            "min": 0
+          }
+        }
+      },
+      {
+        "channelTitle": "Don",
+        "channelIdTrimmed": "UC-XguAp8kn-0tRqm0w2gYNw",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UC-XguAp8kn-0tRqm0w2gYNw",
+        "fetchedVideosFor2024": 12,
+        "totalVideosForChannel": 2151,
+        "subscriberCount": 1100000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 3128506,
+            "average": 260708.83,
+            "max": 626894,
+            "min": 85126
+          },
+          "likes": {
+            "total": 86865,
+            "average": 7238.75,
+            "max": 15878,
+            "min": 2162
+          },
+          "comments": {
+            "total": 11294,
+            "average": 941.17,
+            "max": 3520,
+            "min": 203
+          }
+        }
+      },
+      {
+        "channelTitle": "Sam and Colby",
+        "channelIdTrimmed": "UCg3gzldyhCHJjY7AWWTNPPA",
+        "idMatchStatus": "Matched After Trimming",
+        "channelId": "UCg3gzldyhCHJjY7AWWTNPPA    ",
+        "fetchedVideosFor2024": 11,
+        "totalVideosForChannel": 355,
+        "subscriberCount": 13700000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 126073522,
+            "average": 11461229.27,
+            "max": 19754196,
+            "min": 8127859
+          },
+          "likes": {
+            "total": 4693195,
+            "average": 426654.09,
+            "max": 698224,
+            "min": 261733
+          },
+          "comments": {
+            "total": 436437,
+            "average": 39676.09,
+            "max": 97516,
+            "min": 24066
+          }
+        }
+      },
+      {
+        "channelTitle": "Kai Cenat",
+        "channelIdTrimmed": "UCoEmptob-eEGKk18c2VplJg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCoEmptob-eEGKk18c2VplJg",
+        "fetchedVideosFor2024": 7,
+        "totalVideosForChannel": 286,
+        "subscriberCount": 7030000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 64187772,
+            "average": 9169681.71,
+            "max": 18888507,
+            "min": 2636497
+          },
+          "likes": {
+            "total": 2652671,
+            "average": 378953,
+            "max": 685783,
+            "min": 134851
+          },
+          "comments": {
+            "total": 95531,
+            "average": 13647.29,
+            "max": 20297,
+            "min": 6871
+          }
+        }
+      },
+      {
+        "channelTitle": "Kleine John - Topic",
+        "channelIdTrimmed": "UCmpBLWm1AvRtThEG6DsmiTg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCmpBLWm1AvRtThEG6DsmiTg",
+        "fetchedVideosFor2024": 7,
+        "totalVideosForChannel": 23,
+        "subscriberCount": 6150,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 1340043,
+            "average": 191434.71,
+            "max": 699678,
+            "min": 23459
+          },
+          "likes": {
+            "total": 10181,
+            "average": 1454.43,
+            "max": 4839,
+            "min": 256
+          },
+          "comments": {
+            "total": 0,
+            "average": 0,
+            "max": 0,
+            "min": 0
+          }
+        }
+      },
+      {
+        "channelTitle": "CoryxKenshin",
+        "channelIdTrimmed": "UCiYcA0gJzg855iSKMrX3oHg",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCiYcA0gJzg855iSKMrX3oHg",
+        "fetchedVideosFor2024": 6,
+        "totalVideosForChannel": 1704,
+        "subscriberCount": 21300000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 80808641,
+            "average": 13468106.83,
+            "max": 15643748,
+            "min": 9470370
+          },
+          "likes": {
+            "total": 7182809,
+            "average": 1197134.83,
+            "max": 2009365,
+            "min": 669515
+          },
+          "comments": {
+            "total": 928144,
+            "average": 154690.67,
+            "max": 391936,
+            "min": 75995
+          }
+        }
+      },
+      {
+        "channelTitle": "Ziggo Sport",
+        "channelIdTrimmed": "UCueOZEvMffxjJyVO1fGiJNQ",
+        "idMatchStatus": "Exact Match",
+        "channelId": "UCueOZEvMffxjJyVO1fGiJNQ",
+        "fetchedVideosFor2024": 1,
+        "totalVideosForChannel": 11340,
+        "subscriberCount": 711000,
+        "hasChannelStats": true,
+        "videoStats": {
+          "views": {
+            "total": 18468,
+            "average": 18468,
+            "max": 18468,
+            "min": 18468
+          },
+          "likes": {
+            "total": 224,
+            "average": 224,
+            "max": 224,
+            "min": 224
+          },
+          "comments": {
+            "total": 37,
+            "average": 37,
+            "max": 37,
+            "min": 37
+          }
+        }
+      }
+    ]
+  }
+]

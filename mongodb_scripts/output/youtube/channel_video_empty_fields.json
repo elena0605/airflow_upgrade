@@ -1,0 +1,30 @@
+[
+  {
+    "totalDocuments": 6073,
+    "fieldAnalysis": {
+      "_id": null,
+      "videoTitleCount": 6073,
+      "videoTitleEmpty": 0,
+      "videoIdCount": 6073,
+      "videoIdEmpty": 0,
+      "publishedAtCount": 6073,
+      "publishedAtEmpty": 0,
+      "channelIdCount": 6073,
+      "channelIdEmpty": 0,
+      "videoDescriptionCount": 5616,
+      "videoDescriptionEmpty": 457,
+      "channelTitleCount": 6073,
+      "channelTitleEmpty": 0,
+      "viewCountCount": 6073,
+      "viewCountEmpty": 0,
+      "likeCountCount": 6073,
+      "likeCountEmpty": 0,
+      "commentCountCount": 6073,
+      "commentCountEmpty": 0,
+      "topicCategoriesCount": 5869,
+      "topicCategoriesEmpty": 204,
+      "tagsCount": 5212,
+      "tagsEmpty": 861
+    }
+  }
+]

@@ -1,0 +1,949 @@
+[
+  {
+    "total_videos": 1235,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 104,
+        "percentage": 8.42
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 608,
+        "percentage": 49.23
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 519,
+        "percentage": 42.02
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 4,
+        "percentage": 0.32
+      }
+    ],
+    "username": "espn"
+  },
+  {
+    "total_videos": 982,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 50,
+        "percentage": 5.09
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 541,
+        "percentage": 55.09
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 390,
+        "percentage": 39.71
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 1,
+        "percentage": 0.1
+      }
+    ],
+    "username": "nee"
+  },
+  {
+    "total_videos": 942,
+    "duration_categories": [
+      {
+        "category": "SHORT (<15s)",
+        "count": 739,
+        "percentage": 78.45
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 183,
+        "percentage": 19.43
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 2,
+        "percentage": 0.21
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 18,
+        "percentage": 1.91
+      }
+    ],
+    "username": "billieeilish"
+  },
+  {
+    "total_videos": 906,
+    "duration_categories": [
+      {
+        "category": "SHORT (<15s)",
+        "count": 536,
+        "percentage": 59.16
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 306,
+        "percentage": 33.77
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 2,
+        "percentage": 0.22
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 62,
+        "percentage": 6.84
+      }
+    ],
+    "username": "bts"
+  },
+  {
+    "total_videos": 885,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 40,
+        "percentage": 4.52
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 447,
+        "percentage": 50.51
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 398,
+        "percentage": 44.97
+      }
+    ],
+    "username": "messi"
+  },
+  {
+    "total_videos": 842,
+    "duration_categories": [
+      {
+        "category": "MID (15-60s)",
+        "count": 208,
+        "percentage": 24.7
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 602,
+        "percentage": 71.5
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 32,
+        "percentage": 3.8
+      }
+    ],
+    "username": "straykids"
+  },
+  {
+    "total_videos": 840,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 41,
+        "percentage": 4.88
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 250,
+        "percentage": 29.76
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 549,
+        "percentage": 65.36
+      }
+    ],
+    "username": "bankzitters"
+  },
+  {
+    "total_videos": 822,
+    "duration_categories": [
+      {
+        "category": "SHORT (<15s)",
+        "count": 440,
+        "percentage": 53.53
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 3,
+        "percentage": 0.36
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 333,
+        "percentage": 40.51
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 46,
+        "percentage": 5.6
+      }
+    ],
+    "username": "barcelona"
+  },
+  {
+    "total_videos": 806,
+    "duration_categories": [
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 4,
+        "percentage": 0.5
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 60,
+        "percentage": 7.44
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 426,
+        "percentage": 52.85
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 316,
+        "percentage": 39.21
+      }
+    ],
+    "username": "realmadrid"
+  },
+  {
+    "total_videos": 805,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 45,
+        "percentage": 5.59
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 362,
+        "percentage": 44.97
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 396,
+        "percentage": 49.19
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 2,
+        "percentage": 0.25
+      }
+    ],
+    "username": "ronaldo"
+  },
+  {
+    "total_videos": 787,
+    "duration_categories": [
+      {
+        "category": "SHORT (<15s)",
+        "count": 523,
+        "percentage": 66.45
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 67,
+        "percentage": 8.51
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 194,
+        "percentage": 24.65
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 3,
+        "percentage": 0.38
+      }
+    ],
+    "username": "championsleague"
+  },
+  {
+    "total_videos": 777,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 48,
+        "percentage": 6.18
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 256,
+        "percentage": 32.95
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 467,
+        "percentage": 60.1
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 6,
+        "percentage": 0.77
+      }
+    ],
+    "username": "fortnite"
+  },
+  {
+    "total_videos": 764,
+    "duration_categories": [
+      {
+        "category": "MID (15-60s)",
+        "count": 299,
+        "percentage": 39.14
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 433,
+        "percentage": 56.68
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 32,
+        "percentage": 4.19
+      }
+    ],
+    "username": "charlidamelio"
+  },
+  {
+    "total_videos": 730,
+    "duration_categories": [
+      {
+        "category": "SHORT (<15s)",
+        "count": 336,
+        "percentage": 46.03
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 324,
+        "percentage": 44.38
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 1,
+        "percentage": 0.14
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 69,
+        "percentage": 9.45
+      }
+    ],
+    "username": "gio"
+  },
+  {
+    "total_videos": 691,
+    "duration_categories": [
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 2,
+        "percentage": 0.29
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 133,
+        "percentage": 19.25
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 14,
+        "percentage": 2.03
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 542,
+        "percentage": 78.44
+      }
+    ],
+    "username": "samandcolby"
+  },
+  {
+    "total_videos": 690,
+    "duration_categories": [
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 9,
+        "percentage": 1.3
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 196,
+        "percentage": 28.41
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 378,
+        "percentage": 54.78
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 107,
+        "percentage": 15.51
+      }
+    ],
+    "username": "mrbeast"
+  },
+  {
+    "total_videos": 671,
+    "duration_categories": [
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 1,
+        "percentage": 0.15
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 406,
+        "percentage": 60.51
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 30,
+        "percentage": 4.47
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 234,
+        "percentage": 34.87
+      }
+    ],
+    "username": "feyenoord"
+  },
+  {
+    "total_videos": 627,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 17,
+        "percentage": 2.71
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 365,
+        "percentage": 58.21
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 245,
+        "percentage": 39.07
+      }
+    ],
+    "username": "ajax"
+  },
+  {
+    "total_videos": 606,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 127,
+        "percentage": 20.96
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 221,
+        "percentage": 36.47
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 3,
+        "percentage": 0.5
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 255,
+        "percentage": 42.08
+      }
+    ],
+    "username": "ishowspeed"
+  },
+  {
+    "total_videos": 508,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 35,
+        "percentage": 6.89
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 297,
+        "percentage": 58.46
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 1,
+        "percentage": 0.2
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 175,
+        "percentage": 34.45
+      }
+    ],
+    "username": "taylorswift"
+  },
+  {
+    "total_videos": 499,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 13,
+        "percentage": 2.61
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 328,
+        "percentage": 65.73
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 158,
+        "percentage": 31.66
+      }
+    ],
+    "username": "appelkaas"
+  },
+  {
+    "total_videos": 455,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 113,
+        "percentage": 24.84
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 162,
+        "percentage": 35.6
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 10,
+        "percentage": 2.2
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 170,
+        "percentage": 37.36
+      }
+    ],
+    "username": "khabylame"
+  },
+  {
+    "total_videos": 370,
+    "duration_categories": [
+      {
+        "category": "MID (15-60s)",
+        "count": 142,
+        "percentage": 38.38
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 2,
+        "percentage": 0.54
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 76,
+        "percentage": 20.54
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 150,
+        "percentage": 40.54
+      }
+    ],
+    "username": "geen"
+  },
+  {
+    "total_videos": 293,
+    "duration_categories": [
+      {
+        "category": "SHORT (<15s)",
+        "count": 101,
+        "percentage": 34.47
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 55,
+        "percentage": 18.77
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 1,
+        "percentage": 0.34
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 136,
+        "percentage": 46.42
+      }
+    ],
+    "username": "jadeanna"
+  },
+  {
+    "total_videos": 203,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 37,
+        "percentage": 18.23
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 91,
+        "percentage": 44.83
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 75,
+        "percentage": 36.95
+      }
+    ],
+    "username": "kyliejenner"
+  },
+  {
+    "total_videos": 188,
+    "duration_categories": [
+      {
+        "category": "SHORT (<15s)",
+        "count": 88,
+        "percentage": 46.81
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 40,
+        "percentage": 21.28
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 60,
+        "percentage": 31.91
+      }
+    ],
+    "username": "marijnkuipers"
+  },
+  {
+    "total_videos": 172,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 15,
+        "percentage": 8.72
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 85,
+        "percentage": 49.42
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 5,
+        "percentage": 2.91
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 67,
+        "percentage": 38.95
+      }
+    ],
+    "username": "miakhalifa"
+  },
+  {
+    "total_videos": 159,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 3,
+        "percentage": 1.89
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 50,
+        "percentage": 31.45
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 106,
+        "percentage": 66.67
+      }
+    ],
+    "username": "apsonarmy"
+  },
+  {
+    "total_videos": 154,
+    "duration_categories": [
+      {
+        "category": "SHORT (<15s)",
+        "count": 20,
+        "percentage": 12.99
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 41,
+        "percentage": 26.62
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 93,
+        "percentage": 60.39
+      }
+    ],
+    "username": "rhodekok"
+  },
+  {
+    "total_videos": 122,
+    "duration_categories": [
+      {
+        "category": "SHORT (<15s)",
+        "count": 26,
+        "percentage": 21.31
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 8,
+        "percentage": 6.56
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 88,
+        "percentage": 72.13
+      }
+    ],
+    "username": "kleinejohn"
+  },
+  {
+    "total_videos": 88,
+    "duration_categories": [
+      {
+        "category": "MID (15-60s)",
+        "count": 62,
+        "percentage": 70.45
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 8,
+        "percentage": 9.09
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 18,
+        "percentage": 20.45
+      }
+    ],
+    "username": "duncantromp"
+  },
+  {
+    "total_videos": 81,
+    "duration_categories": [
+      {
+        "category": "MID (15-60s)",
+        "count": 23,
+        "percentage": 28.4
+      },
+      {
+        "category": "EXTRA_LONG (>5min)",
+        "count": 2,
+        "percentage": 2.47
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 15,
+        "percentage": 18.52
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 41,
+        "percentage": 50.62
+      }
+    ],
+    "username": "myronkoops"
+  },
+  {
+    "total_videos": 59,
+    "duration_categories": [
+      {
+        "category": "MID (15-60s)",
+        "count": 52,
+        "percentage": 88.14
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 6,
+        "percentage": 10.17
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 1,
+        "percentage": 1.69
+      }
+    ],
+    "username": "qucee"
+  },
+  {
+    "total_videos": 58,
+    "duration_categories": [
+      {
+        "category": "MID (15-60s)",
+        "count": 32,
+        "percentage": 55.17
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 24,
+        "percentage": 41.38
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 2,
+        "percentage": 3.45
+      }
+    ],
+    "username": "stijnsaman"
+  },
+  {
+    "total_videos": 32,
+    "duration_categories": [
+      {
+        "category": "MID (15-60s)",
+        "count": 15,
+        "percentage": 46.88
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 17,
+        "percentage": 53.12
+      }
+    ],
+    "username": "vrienden"
+  },
+  {
+    "total_videos": 21,
+    "duration_categories": [
+      {
+        "category": "SHORT (<15s)",
+        "count": 9,
+        "percentage": 42.86
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 2,
+        "percentage": 9.52
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 10,
+        "percentage": 47.62
+      }
+    ],
+    "username": "enzoknol"
+  },
+  {
+    "total_videos": 20,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 11,
+        "percentage": 55
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 3,
+        "percentage": 15
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 6,
+        "percentage": 30
+      }
+    ],
+    "username": "touzani"
+  },
+  {
+    "total_videos": 20,
+    "duration_categories": [
+      {
+        "category": "LONG (1-5min)",
+        "count": 1,
+        "percentage": 5
+      },
+      {
+        "category": "SHORT (<15s)",
+        "count": 14,
+        "percentage": 70
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 5,
+        "percentage": 25
+      }
+    ],
+    "username": "isae"
+  },
+  {
+    "total_videos": 15,
+    "duration_categories": [
+      {
+        "category": "SHORT (<15s)",
+        "count": 1,
+        "percentage": 6.67
+      },
+      {
+        "category": "MID (15-60s)",
+        "count": 13,
+        "percentage": 86.67
+      },
+      {
+        "category": "LONG (1-5min)",
+        "count": 1,
+        "percentage": 6.67
+      }
+    ],
+    "username": "royalistiq"
+  },
+  {
+    "total_videos": 6,
+    "duration_categories": [
+      {
+        "category": "MID (15-60s)",
+        "count": 6,
+        "percentage": 100
+      }
+    ],
+    "username": "fatoemakers"
+  },
+  {
+    "total_videos": 1,
+    "duration_categories": [
+      {
+        "category": "SHORT (<15s)",
+        "count": 1,
+        "percentage": 100
+      }
+    ],
+    "username": "vriendinnen"
+  },
+  {
+    "total_videos": 1,
+    "duration_categories": [
+      {
+        "category": "SHORT (<15s)",
+        "count": 1,
+        "percentage": 100
+      }
+    ],
+    "username": "geenidee"
+  }
+]

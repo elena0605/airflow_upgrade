@@ -1,0 +1,15 @@
+[
+  {
+    "total_videos": 18933,
+    "videos_with_voice": 2242,
+    "videos_with_description": 13902,
+    "videos_with_hashtags": 10873,
+    "videos_with_hashtag_info": 10740,
+    "videos_with_mentions": 2879,
+    "voice_percentage": 11.84175777742566,
+    "description_percentage": 73.42734907304707,
+    "hashtags_percentage": 57.42882797232346,
+    "hashtag_info_percentage": 56.7263508160355,
+    "mentions_percentage": 15.206253631225902
+  }
+]

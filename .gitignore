@@ -1,0 +1,26 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Airflow runtime files
+logs/
+*.log
+config/airflow.cfg
+airflow.db
+airflow-webserver.pid
+
+# Ignored __pycache__ folders inside subdirectories
+dags/__pycache__/
+plugins/__pycache__/
+
+# Secrets and sensitive config
+.env
+
+
+# macOS system file
+.DS_Store
+
+airflow_backup.sql
+*.sql

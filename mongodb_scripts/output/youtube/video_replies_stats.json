@@ -1,0 +1,33 @@
+[
+  {
+    "channel_id": "UCX6OQ3DkcsbYNE6H8uQQuVA",
+    "channel_title": "MrBeast",
+    "channel_stats": {
+      "subscriber_count": "367000000",
+      "view_count": "73784793417",
+      "video_count": "849"
+    },
+    "replies_stats": {
+      "total_comments_with_replies": 451,
+      "total_replies": 3254,
+      "total_likes_on_replies": 6004,
+      "unique_repliers": 2732,
+      "per_comment_metrics": {
+        "replies": {
+          "avg": 7.22,
+          "min": 1,
+          "max": 750
+        },
+        "likes": {
+          "avg": 0.57,
+          "min": 0,
+          "max": 1677
+        }
+      },
+      "engagement_metrics": {
+        "avg_likes_per_reply": 1.85,
+        "replies_per_comment_ratio": 7.22
+      }
+    }
+  }
+]

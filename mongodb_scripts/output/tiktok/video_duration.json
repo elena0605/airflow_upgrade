@@ -1,0 +1,22 @@
+[
+  {
+    "category": "EXTRA_LONG (>5min)",
+    "count": 64,
+    "percentage": 0.34
+  },
+  {
+    "category": "LONG (1-5min)",
+    "count": 1645,
+    "percentage": 8.69
+  },
+  {
+    "category": "MID (15-60s)",
+    "count": 7085,
+    "percentage": 37.42
+  },
+  {
+    "category": "SHORT (<15s)",
+    "count": 10139,
+    "percentage": 53.55
+  }
+]
