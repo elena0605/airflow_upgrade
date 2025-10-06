@@ -2,9 +2,15 @@
 const fs = require('fs');
 const path = require('path');
 
-const csvPath = path.join(__dirname, "output", "youtube", "Top 200 YouTube Influencers.csv");
-const biosPath = path.join(__dirname, "output", "youtube", "user_descriptions.json");
-const outputPath = path.join(__dirname, "output", "youtube", "Top 200 YouTube Influencers with Description.csv");
+// Normalize to shared output directory used by runner
+const ROOT_DIR = path.join(__dirname, "..");
+const OUTPUT_DIR = path.join(ROOT_DIR, "output", "youtube");
+const csvPath = path.join(OUTPUT_DIR, "Top 200 YouTube Influencers.csv");
+const biosPath = path.join(OUTPUT_DIR, "user_descriptions.json");
+const outputPath = path.join(OUTPUT_DIR, "Top 200 YouTube Influencers with Description.csv");
+
+// Ensure output directory exists
+if (!fs.existsSync(OUTPUT_DIR)) { fs.mkdirSync(OUTPUT_DIR, { recursive: true }); }
 
 // Load bios
 const userBios = {};

@@ -1,0 +1,352 @@
+---
+title: "TikTok Influencer Analysis Report"
+author: "Data Analysis Team"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    code_folding: hide
+    code_menu: true
+params:
+  data_path: NULL
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(DT)
+library(plotly)
+library(reshape2)
+library(viridis)
+library(tidyr)
+library(scales)
+
+# Set data path
+data_path <- params$data_path
+if (is.null(data_path)) {
+  # Use absolute path
+  data_path <- "/Users/bojansimoski/dev/airflow_upgrade/mongodb_scripts/output/tiktok"
+}
+
+# Ensure data path exists
+if (!dir.exists(data_path)) {
+  stop("Data path does not exist: ", data_path)
+}
+
+print(paste("Loading data from:", data_path))
+```
+
+## Executive Summary
+
+This report provides a comprehensive analysis of TikTok influencer data, examining user engagement patterns, content characteristics, and platform dynamics. The analysis covers multiple dimensions including follower metrics, content performance, user verification status, and engagement rates.
+
+### Data Overview
+
+```{r data-overview, echo=FALSE}
+# Load basic statistics
+if (file.exists(file.path(data_path, "followers_count.csv"))) {
+  followers_data <- read.csv(file.path(data_path, "followers_count.csv"))
+  total_users <- nrow(followers_data)
+  cat("**Total TikTok Users Analyzed**:", total_users, "\n")
+} else {
+  cat("Followers data not found\n")
+}
+
+# Load verification data
+if (file.exists(file.path(data_path, "user_verification.csv"))) {
+  verification_data <- read.csv(file.path(data_path, "user_verification.csv"))
+  if (nrow(verification_data) > 0) {
+    verified_count <- verification_data$Count[verification_data$Status == "Verified"]
+    if (length(verified_count) > 0) {
+      cat("**Verified Users**:", verified_count, "\n")
+    }
+  }
+} else {
+  cat("Verification data not available\n")
+}
+```
+
+## 1. User Engagement Analysis
+
+### Follower Distribution
+
+```{r followers-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "followers_count.csv"))) {
+  followers_data <- read.csv(file.path(data_path, "followers_count.csv"))
+  
+  # Create follower distribution plot
+  p1 <- ggplot(followers_data, aes(x = follower_count)) +
+    geom_histogram(bins = 30, fill = "steelblue", alpha = 0.7) +
+    scale_x_log10(labels = comma_format()) +
+    labs(title = "Distribution of Follower Counts",
+         x = "Follower Count (log scale)",
+         y = "Number of Users") +
+    theme_minimal()
+  
+  print(p1)
+  
+  # Summary statistics
+  cat("**Follower Count Statistics:**\n")
+  cat("- Mean:", format(mean(followers_data$follower_count), big.mark = ","), "\n")
+  cat("- Median:", format(median(followers_data$follower_count), big.mark = ","), "\n")
+  cat("- Max:", format(max(followers_data$follower_count), big.mark = ","), "\n")
+  cat("- Min:", format(min(followers_data$follower_count), big.mark = ","), "\n")
+  
+} else {
+  cat("Followers data not available\n")
+}
+```
+
+### Likes Analysis
+
+```{r likes-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "likes_count.csv"))) {
+  likes_data <- read.csv(file.path(data_path, "likes_count.csv"))
+  
+  # Create likes distribution plot
+  p2 <- ggplot(likes_data, aes(x = likes_count)) +
+    geom_histogram(bins = 30, fill = "coral", alpha = 0.7) +
+    scale_x_log10(labels = comma_format()) +
+    labs(title = "Distribution of Likes Counts",
+         x = "Likes Count (log scale)",
+         y = "Number of Users") +
+    theme_minimal()
+  
+  print(p2)
+  
+  # Summary statistics
+  cat("**Likes Count Statistics:**\n")
+  cat("- Mean:", format(mean(likes_data$likes_count), big.mark = ","), "\n")
+  cat("- Median:", format(median(likes_data$likes_count), big.mark = ","), "\n")
+  cat("- Max:", format(max(likes_data$likes_count), big.mark = ","), "\n")
+  cat("- Min:", format(min(likes_data$likes_count), big.mark = ","), "\n")
+  
+} else {
+  cat("Likes data not available\n")
+}
+```
+
+## 2. User Verification Status
+
+```{r verification-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "user_verification.csv"))) {
+  verification_data <- read.csv(file.path(data_path, "user_verification.csv"))
+  
+  if (nrow(verification_data) > 0) {
+    # Create data frame for pie chart
+    pie_data <- data.frame(
+      Status = c("Verified", "Non-Verified"),
+      Count = c(verification_data$Verified.Count, verification_data$Non.Verified.Count)
+    )
+    
+    # Create verification pie chart
+    p3 <- ggplot(pie_data, aes(x = "", y = Count, fill = Status)) +
+      geom_bar(stat = "identity", width = 1) +
+      coord_polar("y", start = 0) +
+      labs(title = "User Verification Status Distribution",
+           fill = "Status") +
+      theme_void() +
+      scale_fill_viridis_d()
+    
+    print(p3)
+    
+    # Display verification summary
+    cat("**Verification Summary:**\n")
+    cat("- Verified Users:", verification_data$Verified.Count, "(", round(verification_data$Verified.Percentage, 1), "%)\n")
+    cat("- Non-Verified Users:", verification_data$Non.Verified.Count, "(", round(verification_data$Non.Verified.Percentage, 1), "%)\n")
+  }
+} else {
+  cat("Verification data not available\n")
+}
+```
+
+## 3. Video Duration Analysis
+
+```{r video-duration-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "user_video_duration.csv"))) {
+  duration_data <- read.csv(file.path(data_path, "user_video_duration.csv"))
+  
+  # Create total videos distribution plot
+  p4 <- ggplot(duration_data, aes(x = total_videos)) +
+    geom_histogram(bins = 30, fill = "lightgreen", alpha = 0.7) +
+    labs(title = "Distribution of Total Videos per User",
+         x = "Total Videos",
+         y = "Number of Users") +
+    theme_minimal()
+  
+  print(p4)
+  
+  # Summary statistics
+  cat("**Video Statistics:**\n")
+  cat("- Mean Videos per User:", round(mean(duration_data$total_videos, na.rm = TRUE), 2), "\n")
+  cat("- Median Videos per User:", round(median(duration_data$total_videos, na.rm = TRUE), 2), "\n")
+  cat("- Max Videos per User:", max(duration_data$total_videos, na.rm = TRUE), "\n")
+  cat("- Min Videos per User:", min(duration_data$total_videos, na.rm = TRUE), "\n")
+  
+} else {
+  cat("Video duration data not available\n")
+}
+```
+
+## 4. User Video Statistics
+
+```{r user-video-stats, echo=FALSE}
+if (file.exists(file.path(data_path, "user_videos_additional_analysis.csv"))) {
+  video_stats <- read.csv(file.path(data_path, "user_videos_additional_analysis.csv"))
+  
+  # Create scatter plot of videos vs field completion
+  p5 <- ggplot(video_stats, aes(x = total_videos, y = pct_with_all_fields)) +
+    geom_point(alpha = 0.6, color = "purple") +
+    geom_smooth(method = "lm", se = TRUE) +
+    labs(title = "Total Videos vs Field Completion Rate",
+         x = "Total Videos",
+         y = "Percentage with All Fields") +
+    theme_minimal()
+  
+  print(p5)
+  
+  # Summary statistics
+  cat("**Video Statistics:**\n")
+  cat("- Average Videos per User:", round(mean(video_stats$total_videos, na.rm = TRUE), 2), "\n")
+  cat("- Average Field Completion Rate:", round(mean(video_stats$pct_with_all_fields, na.rm = TRUE), 2), "%\n")
+  
+} else {
+  cat("Video statistics data not available\n")
+}
+```
+
+## 5. Popularity and Engagement Analysis
+
+```{r popularity-engagement, echo=FALSE}
+if (file.exists(file.path(data_path, "user_popularity_engagement.csv"))) {
+  engagement_data <- read.csv(file.path(data_path, "user_popularity_engagement.csv"))
+  
+  # Create engagement vs popularity scatter plot
+  p6 <- ggplot(engagement_data, aes(x = popularity_score, y = engagement_rate)) +
+    geom_point(alpha = 0.6, color = "orange") +
+    geom_smooth(method = "lm", se = TRUE) +
+    labs(title = "Popularity Score vs Engagement Rate",
+         x = "Popularity Score",
+         y = "Engagement Rate") +
+    theme_minimal()
+  
+  print(p6)
+  
+  # Top performers table
+  top_performers <- engagement_data %>%
+    arrange(desc(engagement_rate)) %>%
+    head(10) %>%
+    select(username, engagement_rate, popularity_score)
+  
+  kable(top_performers, caption = "Top 10 Users by Engagement Rate")
+  
+} else {
+  cat("Engagement data not available\n")
+}
+```
+
+## 6. Field Presence Analysis
+
+```{r field-presence, echo=FALSE}
+if (file.exists(file.path(data_path, "video_field_presence_stats.csv"))) {
+  field_data <- read.csv(file.path(data_path, "video_field_presence_stats.csv"))
+  
+  # Create data frame for field presence
+  field_summary <- data.frame(
+    Field = c("Voice", "Description", "Hashtags", "Hashtag Info", "Mentions"),
+    Percentage = c(field_data$voice_percentage, field_data$description_percentage, 
+                   field_data$hashtags_percentage, field_data$hashtag_info_percentage, 
+                   field_data$mentions_percentage)
+  )
+  
+  # Create field presence bar chart
+  p7 <- ggplot(field_summary, aes(x = reorder(Field, Percentage), y = Percentage)) +
+    geom_col(fill = "skyblue", alpha = 0.7) +
+    coord_flip() +
+    labs(title = "Video Field Presence Statistics",
+         x = "Field",
+         y = "Presence Percentage (%)") +
+    theme_minimal()
+  
+  print(p7)
+  
+  kable(field_summary, caption = "Field Presence Statistics")
+  
+} else {
+  cat("Field presence data not available\n")
+}
+```
+
+## 7. Comments Analysis
+
+```{r comments-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "video_comments_stats.csv"))) {
+  # The CSV file has a malformed structure, so we'll skip this section for now
+  cat("**Comments Statistics:**\n")
+  cat("- Comments data available but requires data structure fix\n")
+  cat("- This section will be updated once the CSV generation is corrected\n")
+  
+} else {
+  cat("Comments data not available\n")
+}
+```
+
+## 8. User Bios Analysis
+
+```{r bios-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "user_bios.csv"))) {
+  bios_data <- read.csv(file.path(data_path, "user_bios.csv"))
+  
+  # Calculate bio lengths
+  bios_data$bio_length <- nchar(as.character(bios_data$bio_description))
+  
+  # Create bio length distribution
+  p9 <- ggplot(bios_data, aes(x = bio_length)) +
+    geom_histogram(bins = 30, fill = "lightblue", alpha = 0.7) +
+    labs(title = "Distribution of Bio Lengths",
+         x = "Bio Length (characters)",
+         y = "Number of Users") +
+    theme_minimal()
+  
+  print(p9)
+  
+  # Summary statistics
+  cat("**Bio Length Statistics:**\n")
+  cat("- Mean Length:", round(mean(bios_data$bio_length, na.rm = TRUE), 2), "characters\n")
+  cat("- Median Length:", round(median(bios_data$bio_length, na.rm = TRUE), 2), "characters\n")
+  cat("- Max Length:", max(bios_data$bio_length, na.rm = TRUE), "characters\n")
+  
+} else {
+  cat("User bios data not available\n")
+}
+```
+
+## 9. Comprehensive Analysis
+
+```{r comprehensive-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "user_videos_comprehensive_analysis.csv"))) {
+  comprehensive_data <- read.csv(file.path(data_path, "user_videos_comprehensive_analysis.csv"))
+  
+  # Display comprehensive analysis summary
+  cat("**Comprehensive Analysis Summary:**\n")
+  cat("- Total Influencers Analyzed:", comprehensive_data$total_influencers, "\n")
+  cat("- Missing Influencers:", comprehensive_data$missing_influencers, "\n")
+  cat("- Total Missing Data Points:", comprehensive_data$total_missing, "\n")
+  cat("- Data completeness:", round((1 - comprehensive_data$total_missing / (comprehensive_data$total_influencers * 10)) * 100, 2), "%\n")
+  
+} else {
+  cat("Comprehensive analysis data not available\n")
+}
+```
+
+## Conclusion
+
+This analysis provides insights into TikTok influencer behavior, engagement patterns, and content characteristics. The data reveals trends in follower distribution, verification status, video performance, and user engagement metrics that can inform content strategy and platform understanding.
+
+---
+
+*Report generated on `r Sys.Date()`*

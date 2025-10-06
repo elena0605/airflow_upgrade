@@ -1,10 +1,16 @@
 var results = [];
+// Optional sampling to reduce RU (set ANALYSIS_SAMPLE_SIZE in env)
+var __sampleSize = (typeof process !== 'undefined' && process.env && process.env.ANALYSIS_SAMPLE_SIZE) ? parseInt(process.env.ANALYSIS_SAMPLE_SIZE, 10) : 0;
+var __maybeSample = (__sampleSize && __sampleSize > 0) ? [{ $sample: { size: __sampleSize } }] : [];
+
 db.tiktok_user_video.aggregate([
   {
     $match: {
       video_duration: { $exists: true, $type: "number", $gte: 0 }
     }
   },
+  // Reduce RU by sampling when requested
+  ...__maybeSample,
   {
     $facet: {
       "totalCount": [{ $count: "count" }],

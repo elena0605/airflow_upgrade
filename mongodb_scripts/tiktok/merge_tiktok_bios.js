@@ -2,12 +2,16 @@
 const fs = require('fs');
 const path = require('path');
 
-const csvPath = path.join(__dirname, "output", "tiktok", "Top 200 TikTok Influencers.csv");
-const biosPath = path.join(__dirname, "output", "tiktok", "user_bios.json");
-const outputPath = path.join(__dirname, "output", "tiktok", "Top 200 TikTok Influencers with Bio.csv");
+// Normalize to shared output directory used by runner
+const ROOT_DIR = path.join(__dirname, "..");
+const OUTPUT_DIR = path.join(ROOT_DIR, "output", "tiktok");
+const csvPath = path.join(OUTPUT_DIR, "Top 200 TikTok Influencers.csv");
+const biosPath = path.join(OUTPUT_DIR, "user_bios.json");
+const outputPath = path.join(OUTPUT_DIR, "Top 200 TikTok Influencers with Bio.csv");
 
 // Load bios
 const userBios = {};
+if (!fs.existsSync(OUTPUT_DIR)) { fs.mkdirSync(OUTPUT_DIR, { recursive: true }); }
 const bios = JSON.parse(fs.readFileSync(biosPath, "utf-8"));
 bios.forEach(entry => {
   userBios[entry.username.toLowerCase()] = entry.bio_description;

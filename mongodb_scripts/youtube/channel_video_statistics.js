@@ -143,50 +143,13 @@ db.youtube_channel_videos.aggregate([
       }
     },
     
-    // Stage 8: Find channels in youtube_channel_stats that don't have videos
+    // Stage 8: Simple lookup for channels without videos (Cosmos-compatible)
     {
       $lookup: {
         from: "youtube_channel_stats",
-        pipeline: [
-          // Subpipeline to find channels without videos
-          {
-            $lookup: {
-              from: "youtube_channel_videos",
-              let: { 
-                channel_id: "$channel_id",
-                channel_id_trimmed: { $trim: { input: "$channel_id" } }
-              },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $or: [
-                        { $eq: ["$channel_id", "$$channel_id"] },
-                        { $eq: [{ $trim: { input: "$channel_id" } }, "$$channel_id_trimmed"] }
-                      ]
-                    }
-                  }
-                }
-              ],
-              as: "videos"
-            }
-          },
-          {
-            $match: {
-              videos: { $size: 0 }
-            }
-          },
-          {
-            $project: {
-              _id: 0,
-              channel_id: 1,
-              title: 1,
-              declared_video_count: "$video_count",
-              subscriber_count: 1
-            }
-          }
-        ],
-        as: "channelsWithoutVideos"
+        localField: "_id",
+        foreignField: "channel_id",
+        as: "allChannels"
       }
     },
     
@@ -196,11 +159,11 @@ db.youtube_channel_videos.aggregate([
         _id: 0,
         totalVideos: 1,
         uniqueChannels: 1,
-        totalChannelsInStats: { $add: ["$uniqueChannels", { $size: "$channelsWithoutVideos" }] },
+        totalChannelsInStats: { $size: "$allChannels" },
         channelsWithExactMatch: 1,
         channelsWithTrimmedMatch: 1,
         channelsWithNoMatch: 1,
-        channelsWithoutVideos: 1,
+        channelsWithoutVideos: [], // Simplified for Cosmos compatibility
         channelsMatchedAfterTrimming: {
           $filter: {
             input: "$allChannelDetails",

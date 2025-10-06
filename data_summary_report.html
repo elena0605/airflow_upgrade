@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Storage Summary Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+            margin-bottom: 30px;
+            border-radius: 10px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .overview {
+            background-color: #e8f4fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #2196F3;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .section h3 {
+            color: #34495e;
+            margin: 25px 0 15px 0;
+            font-size: 1.4em;
+            background-color: #ecf0f1;
+            padding: 10px 15px;
+            border-radius: 5px;
+        }
+
+        .section h4 {
+            color: #7f8c8d;
+            margin: 20px 0 10px 0;
+            font-size: 1.2em;
+        }
+
+        .database-config {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .config-card {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .config-card h4 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .collection-card {
+            background-color: #fff;
+            border: 1px solid #e1e8ed;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .collection-header {
+            background-color: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e1e8ed;
+        }
+
+        .collection-header h4 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 1.3em;
+        }
+
+        .collection-body {
+            padding: 20px;
+        }
+
+        .field-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .field-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f3f4;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .field-list li:last-child {
+            border-bottom: none;
+        }
+
+        .field-name {
+            font-weight: 600;
+            color: #2c3e50;
+            flex: 1;
+        }
+
+        .field-type {
+            background-color: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+
+        .field-description {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .neo4j-section {
+            background-color: #f0f8ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .node-type {
+            background-color: white;
+            border: 1px solid #d1ecf1;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .node-header {
+            background-color: #d1ecf1;
+            padding: 12px 15px;
+            font-weight: 600;
+            color: #0c5460;
+        }
+
+        .node-body {
+            padding: 15px;
+        }
+
+        .relationship-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .relationship-item {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+        }
+
+        .relationship-name {
+            font-weight: 600;
+            color: #155724;
+            margin-bottom: 5px;
+        }
+
+        .relationship-description {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .flow-section {
+            background-color: #fff3cd;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .flow-steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .flow-step {
+            background-color: white;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            flex: 1;
+            margin: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .flow-step-number {
+            background-color: #007bff;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: bold;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .feature-card {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .feature-card h5 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .volume-estimates {
+            background-color: #e8f5e8;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+
+        .volume-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #d4edda;
+        }
+
+        .volume-item:last-child {
+            border-bottom: none;
+        }
+
+        .platform-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+
+        .tiktok-badge {
+            background-color: #ff0050;
+            color: white;
+        }
+
+        .youtube-badge {
+            background-color: #ff0000;
+            color: white;
+        }
+
+        .mongo-badge {
+            background-color: #4db33d;
+            color: white;
+        }
+
+        .neo4j-badge {
+            background-color: #4581c3;
+            color: white;
+        }
+
+        .toc {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .toc h3 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .toc ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .toc li {
+            margin-bottom: 8px;
+        }
+
+        .toc a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        /* Data Model Visualization Styles */
+        .data-models {
+            margin-bottom: 40px;
+        }
+
+        .model-section {
+            margin-bottom: 40px;
+        }
+
+        .model-diagram {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            overflow-x: auto;
+            border: 1px solid #e1e8ed;
+        }
+
+        .data-model-svg {
+            width: 100%;
+            height: auto;
+            max-width: 100%;
+        }
+
+        .node-group {
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .node-group:hover {
+            transform: scale(1.05);
+        }
+
+        .node-group rect {
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+        }
+
+        .node-group text {
+            pointer-events: none;
+        }
+
+        .relationship-group line,
+        .relationship-group path {
+            stroke-dasharray: 5,5;
+            animation: dash 2s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -10;
+            }
+        }
+
+        .relationship-group text {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            fill: #2c3e50;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .database-config {
+                grid-template-columns: 1fr;
+            }
+            
+            .flow-steps {
+                flex-direction: column;
+            }
+            
+            .field-list li {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .field-type {
+                margin-left: 0;
+                margin-top: 5px;
+            }
+
+            .data-model-svg {
+                min-width: 1000px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Data Storage Summary Report</h1>
+            <p>Comprehensive analysis of MongoDB and Neo4j data structures across TikTok and YouTube platforms</p>
+        </div>
+
+        <div class="toc">
+            <h3>📋 Table of Contents</h3>
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#database-config">Database Configuration</a></li>
+                <li><a href="#mongodb-collections">MongoDB Collections</a></li>
+                <li><a href="#neo4j-graph">Neo4j Graph Database</a></li>
+                <li><a href="#data-flow">Data Processing Flow</a></li>
+                <li><a href="#features">Key Features</a></li>
+                <li><a href="#volume">Data Volume Estimates</a></li>
+            </ul>
+        </div>
+
+        <div id="overview" class="overview">
+            <h2>🎯 Overview</h2>
+            <p>This report summarizes all data types and structures stored in MongoDB and Neo4j databases across the Airflow DAGs in this project. The project processes data from <span class="platform-badge tiktok-badge">TikTok</span> and <span class="platform-badge youtube-badge">YouTube</span> platforms, storing both raw data in <span class="platform-badge mongo-badge">MongoDB</span> and transformed graph data in <span class="platform-badge neo4j-badge">Neo4j</span>.</p>
+        </div>
+
+        <div id="database-config" class="section">
+            <h2>⚙️ Database Configuration</h2>
+            <div class="database-config">
+                <div class="config-card">
+                    <h4>🔧 Development Environment</h4>
+                    <p><strong>MongoDB:</strong> <code>airflow_db</code></p>
+                    <p><strong>Neo4j:</strong> <code>neo4j</code></p>
+                </div>
+                <div class="config-card">
+                    <h4>🚀 Production Environment</h4>
+                    <p><strong>MongoDB:</strong> <code>rbl</code></p>
+                    <p><strong>Neo4j:</strong> <code>neo4j</code></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="mongodb-collections" class="section">
+            <h2>🗄️ MongoDB Collections</h2>
+            
+            <h3><span class="platform-badge tiktok-badge">TikTok</span> Data</h3>
+            
+            <div class="collection-card">
+                <div class="collection-header">
+                    <h4>1. tiktok_user_info</h4>
+                    <p><strong>Purpose:</strong> Stores TikTok user profile information</p>
+                </div>
+                <div class="collection-body">
+                    <h5>Key Fields:</h5>
+                    <ul class="field-list">
+                        <li><span class="field-name">username</span><span class="field-type">String, Unique</span></li>
+                        <li><span class="field-name">display_name</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">bio_description</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">bio_url</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">avatar_url</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">follower_count</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">following_count</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">likes_count</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">video_count</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">is_verified</span><span class="field-type">Boolean</span></li>
+                        <li><span class="field-name">timestamp</span><span class="field-type">DateTime</span></li>
+                        <li><span class="field-name">transformed_to_neo4j</span><span class="field-type">Boolean</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="collection-card">
+                <div class="collection-header">
+                    <h4>2. tiktok_user_video</h4>
+                    <p><strong>Purpose:</strong> Stores TikTok video metadata and statistics</p>
+                </div>
+                <div class="collection-body">
+                    <h5>Key Fields:</h5>
+                    <ul class="field-list">
+                        <li><span class="field-name">video_id</span><span class="field-type">String, Unique</span></li>
+                        <li><span class="field-name">username</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">video_description</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">view_count</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">like_count</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">comment_count</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">hashtag_names</span><span class="field-type">Array</span></li>
+                        <li><span class="field-name">hashtag_info_list</span><span class="field-type">Array</span></li>
+                        <li><span class="field-name">video_mention_list</span><span class="field-type">Array</span></li>
+                        <li><span class="field-name">sticker_info_list</span><span class="field-type">Array</span></li>
+                        <li><span class="field-name">effect_info_list</span><span class="field-type">Array</span></li>
+                        <li><span class="field-name">voice_to_text</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">video_duration</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">fetched_time</span><span class="field-type">DateTime</span></li>
+                        <li><span class="field-name">transformed_to_neo4j</span><span class="field-type">Boolean</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="collection-card">
+                <div class="collection-header">
+                    <h4>3. tiktok_video_comments</h4>
+                    <p><strong>Purpose:</strong> Stores TikTok video comments and replies</p>
+                </div>
+                <div class="collection-body">
+                    <h5>Key Fields:</h5>
+                    <ul class="field-list">
+                        <li><span class="field-name">id</span><span class="field-type">String, Unique</span></li>
+                        <li><span class="field-name">video_id</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">username</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">text</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">like_count</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">reply_count</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">parent_comment_id</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">create_time</span><span class="field-type">DateTime</span></li>
+                        <li><span class="field-name">fetched_at</span><span class="field-type">DateTime</span></li>
+                        <li><span class="field-name">transformed_to_neo4j</span><span class="field-type">Boolean</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3><span class="platform-badge youtube-badge">YouTube</span> Data</h3>
+
+            <div class="collection-card">
+                <div class="collection-header">
+                    <h4>4. youtube_channel_stats</h4>
+                    <p><strong>Purpose:</strong> Stores YouTube channel statistics and metadata</p>
+                </div>
+                <div class="collection-body">
+                    <h5>Key Fields:</h5>
+                    <ul class="field-list">
+                        <li><span class="field-name">channel_id</span><span class="field-type">String, Unique</span></li>
+                        <li><span class="field-name">username</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">title</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">view_count</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">subscriber_count</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">video_count</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">description</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">keywords</span><span class="field-type">Array</span></li>
+                        <li><span class="field-name">country</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">topic_categories</span><span class="field-type">Array</span></li>
+                        <li><span class="field-name">timestamp</span><span class="field-type">DateTime</span></li>
+                        <li><span class="field-name">transformed_to_neo4j</span><span class="field-type">Boolean</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="collection-card">
+                <div class="collection-header">
+                    <h4>5. youtube_channel_videos</h4>
+                    <p><strong>Purpose:</strong> Stores YouTube video metadata and statistics</p>
+                </div>
+                <div class="collection-body">
+                    <h5>Key Fields:</h5>
+                    <ul class="field-list">
+                        <li><span class="field-name">video_id</span><span class="field-type">String, Unique</span></li>
+                        <li><span class="field-name">video_title</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">published_at</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">channel_id</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">video_description</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">thumbnails</span><span class="field-type">Object</span></li>
+                        <li><span class="field-name">view_count</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">like_count</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">comment_count</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">topic_categories</span><span class="field-type">Array</span></li>
+                        <li><span class="field-name">tags</span><span class="field-type">Array</span></li>
+                        <li><span class="field-name">timestamp</span><span class="field-type">DateTime</span></li>
+                        <li><span class="field-name">transformed_to_neo4j</span><span class="field-type">Boolean</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="collection-card">
+                <div class="collection-header">
+                    <h4>6. youtube_video_comments</h4>
+                    <p><strong>Purpose:</strong> Stores YouTube video top-level comments</p>
+                </div>
+                <div class="collection-body">
+                    <h5>Key Fields:</h5>
+                    <ul class="field-list">
+                        <li><span class="field-name">comment_id</span><span class="field-type">String, Unique</span></li>
+                        <li><span class="field-name">video_id</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">text</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">authorDisplayName</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">likeCount</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">publishedAt</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">fetched_at</span><span class="field-type">DateTime</span></li>
+                        <li><span class="field-name">transformed_to_neo4j</span><span class="field-type">Boolean</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="collection-card">
+                <div class="collection-header">
+                    <h4>7. youtube_video_replies</h4>
+                    <p><strong>Purpose:</strong> Stores YouTube comment replies</p>
+                </div>
+                <div class="collection-body">
+                    <h5>Key Fields:</h5>
+                    <ul class="field-list">
+                        <li><span class="field-name">reply_id</span><span class="field-type">String, Unique</span></li>
+                        <li><span class="field-name">parent_id</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">text</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">authorDisplayName</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">likeCount</span><span class="field-type">Number</span></li>
+                        <li><span class="field-name">publishedAt</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">fetched_time</span><span class="field-type">DateTime</span></li>
+                        <li><span class="field-name">transformed_to_neo4j</span><span class="field-type">Boolean</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="collection-card">
+                <div class="collection-header">
+                    <h4>8. youtube_video_captions</h4>
+                    <p><strong>Purpose:</strong> Stores YouTube video captions/subtitles</p>
+                </div>
+                <div class="collection-body">
+                    <h5>Key Fields:</h5>
+                    <ul class="field-list">
+                        <li><span class="field-name">caption_id</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">video_id</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">language</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">caption_content</span><span class="field-type">String</span></li>
+                        <li><span class="field-name">is_auto</span><span class="field-type">Boolean</span></li>
+                        <li><span class="field-name">fetched_time</span><span class="field-type">DateTime</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="neo4j-graph" class="section">
+            <h2>🕸️ Neo4j Graph Database</h2>
+            
+            <div class="data-models">
+                <h3>📊 Data Model Visualizations</h3>
+                
+                <div class="model-section">
+                    <h4><span class="platform-badge tiktok-badge">TikTok</span> Data Model</h4>
+                    <div class="model-diagram">
+                        <svg viewBox="0 0 1800 1200" class="data-model-svg">
+                            <!-- TikTok User Node -->
+                            <g class="node-group">
+                                <rect x="50" y="50" width="350" height="300" rx="10" fill="#ff0050" stroke="#cc0040" stroke-width="2"/>
+                                <text x="225" y="85" text-anchor="middle" fill="black" font-weight="bold" font-size="20">TikTokUser</text>
+                                <text x="70" y="115" fill="black" font-size="13">• username (String)</text>
+                                <text x="70" y="140" fill="black" font-size="13">• display_name (String)</text>
+                                <text x="70" y="165" fill="black" font-size="13">• bio_description (String)</text>
+                                <text x="70" y="190" fill="black" font-size="13">• bio_url (String)</text>
+                                <text x="70" y="215" fill="black" font-size="13">• avatar_url (String)</text>
+                                <text x="70" y="240" fill="black" font-size="13">• follower_count (Number)</text>
+                                <text x="70" y="265" fill="black" font-size="13">• following_count (Number)</text>
+                                <text x="70" y="290" fill="black" font-size="13">• likes_count (Number)</text>
+                                <text x="70" y="315" fill="black" font-size="13">• video_count (Number)</text>
+                                <text x="70" y="340" fill="black" font-size="13">• is_verified (Boolean)</text>
+                            </g>
+                            
+                            <!-- TikTok Video Node -->
+                            <g class="node-group">
+                                <rect x="500" y="50" width="350" height="400" rx="10" fill="#ff0050" stroke="#cc0040" stroke-width="2"/>
+                                <text x="675" y="85" text-anchor="middle" fill="black" font-weight="bold" font-size="20">TikTokVideo</text>
+                                <text x="520" y="115" fill="black" font-size="13">• video_id (String)</text>
+                                <text x="520" y="140" fill="black" font-size="13">• video_description (String)</text>
+                                <text x="520" y="165" fill="black" font-size="13">• create_time (String)</text>
+                                <text x="520" y="190" fill="black" font-size="13">• region_code (String)</text>
+                                <text x="520" y="215" fill="black" font-size="13">• share_count (Number)</text>
+                                <text x="520" y="240" fill="black" font-size="13">• view_count (Number)</text>
+                                <text x="520" y="265" fill="black" font-size="13">• like_count (Number)</text>
+                                <text x="520" y="290" fill="black" font-size="13">• comment_count (Number)</text>
+                                <text x="520" y="315" fill="black" font-size="13">• music_id (String)</text>
+                                <text x="520" y="340" fill="black" font-size="13">• voice_to_text (String)</text>
+                                <text x="520" y="365" fill="black" font-size="13">• is_stem_verified (Boolean)</text>
+                                <text x="520" y="390" fill="black" font-size="13">• video_duration (Number)</text>
+                                <text x="520" y="415" fill="black" font-size="13">• video_title (String)</text>
+                                <text x="520" y="440" fill="black" font-size="13">• video_author_url (String)</text>
+                            </g>
+                            
+                            <!-- TikTok Comment Node -->
+                            <g class="node-group">
+                                <rect x="950" y="50" width="350" height="280" rx="10" fill="#ff0050" stroke="#cc0040" stroke-width="2"/>
+                                <text x="1125" y="85" text-anchor="middle" fill="black" font-weight="bold" font-size="20">TikTokComment</text>
+                                <text x="970" y="115" fill="black" font-size="13">• comment_id (String)</text>
+                                <text x="970" y="140" fill="black" font-size="13">• video_id (String)</text>
+                                <text x="970" y="165" fill="black" font-size="13">• text (String)</text>
+                                <text x="970" y="190" fill="black" font-size="13">• like_count (Number)</text>
+                                <text x="970" y="215" fill="black" font-size="13">• reply_count (Number)</text>
+                                <text x="970" y="240" fill="black" font-size="13">• parent_comment_id (String)</text>
+                                <text x="970" y="265" fill="black" font-size="13">• create_time (DateTime)</text>
+                                <text x="970" y="290" fill="black" font-size="13">• username (String)</text>
+                            </g>
+                            
+                            <!-- Hashtag Node -->
+                            <g class="node-group">
+                                <rect x="500" y="500" width="350" height="180" rx="10" fill="#ff6b6b" stroke="#ff5252" stroke-width="2"/>
+                                <text x="675" y="535" text-anchor="middle" fill="black" font-weight="bold" font-size="20">Hashtag</text>
+                                <text x="520" y="565" fill="black" font-size="13">• id (String)</text>
+                                <text x="520" y="590" fill="black" font-size="13">• name (String)</text>
+                                <text x="520" y="615" fill="black" font-size="13">• description (String)</text>
+                            </g>
+                            
+                            <!-- Sticker Node -->
+                            <g class="node-group">
+                                <rect x="950" y="500" width="350" height="160" rx="10" fill="#ff6b6b" stroke="#ff5252" stroke-width="2"/>
+                                <text x="1125" y="535" text-anchor="middle" fill="black" font-weight="bold" font-size="20">Sticker</text>
+                                <text x="970" y="565" fill="black" font-size="13">• id (String)</text>
+                                <text x="970" y="590" fill="black" font-size="13">• name (String)</text>
+                            </g>
+                            
+                            <!-- Relationships -->
+                            <g class="relationship-group">
+                                <!-- User to Video -->
+                                <line x1="400" y1="200" x2="500" y2="200" stroke="#333" stroke-width="3" marker-end="url(#arrowhead)"/>
+                                <text x="450" y="195" text-anchor="middle" fill="#333" font-weight="bold" font-size="12">PUBLISHED_ON_TIKTOK</text>
+                                
+                                <!-- Video to Comment -->
+                                <line x1="850" y1="190" x2="950" y2="190" stroke="#333" stroke-width="3" marker-end="url(#arrowhead)"/>
+                                <text x="900" y="185" text-anchor="middle" fill="#333" font-weight="bold" font-size="12">POSTED_ON_TIKTOK_VIDEO</text>
+                                
+                                <!-- Video to Hashtag -->
+                                <line x1="675" y1="450" x2="675" y2="500" stroke="#333" stroke-width="3" marker-end="url(#arrowhead)"/>
+                                <text x="685" y="475" text-anchor="middle" fill="#333" font-weight="bold" font-size="12">HAS_HASHTAG</text>
+                                
+                                <!-- Video to Sticker -->
+                                <line x1="850" y1="250" x2="950" y2="500" stroke="#333" stroke-width="3" marker-end="url(#arrowhead)"/>
+                                <text x="900" y="375" text-anchor="middle" fill="#333" font-weight="bold" font-size="12">HAS_STICKER</text>
+                                
+                                <!-- Comment to Comment (Reply) -->
+                                <path d="M 1125 330 Q 1175 360 1125 390" stroke="#333" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+                                <text x="1175" y="360" text-anchor="middle" fill="#333" font-weight="bold" font-size="12">REPLIED_TO_TIKTOK_COMMENT</text>
+                            </g>
+                            
+                            <!-- Arrow marker definition -->
+                            <defs>
+                                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                    <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+                                </marker>
+                            </defs>
+                        </svg>
+                    </div>
+                </div>
+                
+                <div class="model-section">
+                    <h4><span class="platform-badge youtube-badge">YouTube</span> Data Model</h4>
+                    <div class="model-diagram">
+                        <svg viewBox="0 0 1800 1300" class="data-model-svg">
+                            <!-- YouTube Channel Node -->
+                            <g class="node-group">
+                                <rect x="50" y="50" width="350" height="300" rx="10" fill="#ff0000" stroke="#cc0000" stroke-width="2"/>
+                                <text x="225" y="85" text-anchor="middle" fill="black" font-weight="bold" font-size="20">YouTubeChannel</text>
+                                <text x="70" y="115" fill="black" font-size="13">• channel_id (String)</text>
+                                <text x="70" y="140" fill="black" font-size="13">• title (String)</text>
+                                <text x="70" y="165" fill="black" font-size="13">• view_count (String)</text>
+                                <text x="70" y="190" fill="black" font-size="13">• subscriber_count (String)</text>
+                                <text x="70" y="215" fill="black" font-size="13">• video_count (String)</text>
+                                <text x="70" y="240" fill="black" font-size="13">• hidden_subscriber_count (Boolean)</text>
+                                <text x="70" y="265" fill="black" font-size="13">• description (String)</text>
+                                <text x="70" y="290" fill="black" font-size="13">• keywords (Array)</text>
+                                <text x="70" y="315" fill="black" font-size="13">• country (String)</text>
+                                <text x="70" y="340" fill="black" font-size="13">• topic_categories (Array)</text>
+                            </g>
+                            
+                            <!-- YouTube Video Node -->
+                            <g class="node-group">
+                                <rect x="500" y="50" width="350" height="320" rx="10" fill="#ff0000" stroke="#cc0000" stroke-width="2"/>
+                                <text x="675" y="85" text-anchor="middle" fill="black" font-weight="bold" font-size="20">YouTubeVideo</text>
+                                <text x="520" y="115" fill="black" font-size="13">• video_id (String)</text>
+                                <text x="520" y="140" fill="black" font-size="13">• video_title (String)</text>
+                                <text x="520" y="165" fill="black" font-size="13">• published_at (String)</text>
+                                <text x="520" y="190" fill="black" font-size="13">• channel_id (String)</text>
+                                <text x="520" y="215" fill="black" font-size="13">• video_description (String)</text>
+                                <text x="520" y="240" fill="black" font-size="13">• channel_title (String)</text>
+                                <text x="520" y="265" fill="black" font-size="13">• thumbnail_gridfs_id (String)</text>
+                                <text x="520" y="290" fill="black" font-size="13">• view_count (Number)</text>
+                                <text x="520" y="315" fill="black" font-size="13">• like_count (Number)</text>
+                                <text x="520" y="340" fill="black" font-size="13">• comment_count (Number)</text>
+                                <text x="520" y="365" fill="black" font-size="13">• topic_categories (Array)</text>
+                                <text x="520" y="390" fill="black" font-size="13">• tags (Array)</text>
+                            </g>
+                            
+                            <!-- YouTube Comment Node -->
+                            <g class="node-group">
+                                <rect x="950" y="50" width="350" height="320" rx="10" fill="#ff0000" stroke="#cc0000" stroke-width="2"/>
+                                <text x="1125" y="85" text-anchor="middle" fill="black" font-weight="bold" font-size="20">YouTubeVideoComment</text>
+                                <text x="970" y="115" fill="black" font-size="13">• comment_id (String)</text>
+                                <text x="970" y="140" fill="black" font-size="13">• channel_id (String)</text>
+                                <text x="970" y="165" fill="black" font-size="13">• video_id (String)</text>
+                                <text x="970" y="190" fill="black" font-size="13">• canReply (Boolean)</text>
+                                <text x="970" y="215" fill="black" font-size="13">• totalReplyCount (Number)</text>
+                                <text x="970" y="240" fill="black" font-size="13">• text (String)</text>
+                                <text x="970" y="265" fill="black" font-size="13">• authorDisplayName (String)</text>
+                                <text x="970" y="290" fill="black" font-size="13">• authorProfileImageUrl (String)</text>
+                                <text x="970" y="315" fill="black" font-size="13">• authorChannelUrl (String)</text>
+                                <text x="970" y="340" fill="black" font-size="13">• canRate (Boolean)</text>
+                                <text x="970" y="365" fill="black" font-size="13">• viewerRating (String)</text>
+                                <text x="970" y="390" fill="black" font-size="13">• likeCount (Number)</text>
+                                <text x="970" y="415" fill="black" font-size="13">• publishedAt (String)</text>
+                                <text x="970" y="440" fill="black" font-size="13">• updatedAt (String)</text>
+                            </g>
+                            
+                            <!-- YouTube Reply Node -->
+                            <g class="node-group">
+                                <rect x="950" y="450" width="350" height="350" rx="10" fill="#ff4444" stroke="#cc0000" stroke-width="2"/>
+                                <text x="1125" y="485" text-anchor="middle" fill="black" font-weight="bold" font-size="20">YouTubeVideoReply</text>
+                                <text x="970" y="515" fill="black" font-size="13">• reply_id (String)</text>
+                                <text x="970" y="540" fill="black" font-size="13">• channel_id (String)</text>
+                                <text x="970" y="565" fill="black" font-size="13">• parent_id (String)</text>
+                                <text x="970" y="590" fill="black" font-size="13">• text (String)</text>
+                                <text x="970" y="615" fill="black" font-size="13">• authorDisplayName (String)</text>
+                                <text x="970" y="640" fill="black" font-size="13">• authorProfileImageUrl (String)</text>
+                                <text x="970" y="665" fill="black" font-size="13">• authorChannelUrl (String)</text>
+                                <text x="970" y="690" fill="black" font-size="13">• canRate (Boolean)</text>
+                                <text x="970" y="715" fill="black" font-size="13">• viewerRating (String)</text>
+                                <text x="970" y="740" fill="black" font-size="13">• likeCount (Number)</text>
+                                <text x="970" y="765" fill="black" font-size="13">• publishedAt (String)</text>
+                                <text x="970" y="790" fill="black" font-size="13">• updatedAt (String)</text>
+                                <text x="970" y="815" fill="black" font-size="13">• last_updated (DateTime)</text>
+                            </g>
+                            
+                            <!-- YouTube Caption Node -->
+                            <g class="node-group">
+                                <rect x="500" y="450" width="350" height="240" rx="10" fill="#ff4444" stroke="#cc0000" stroke-width="2"/>
+                                <text x="675" y="485" text-anchor="middle" fill="black" font-weight="bold" font-size="20">YouTubeVideoCaption</text>
+                                <text x="520" y="515" fill="black" font-size="13">• caption_id (String)</text>
+                                <text x="520" y="540" fill="black" font-size="13">• video_id (String)</text>
+                                <text x="520" y="565" fill="black" font-size="13">• language (String)</text>
+                                <text x="520" y="590" fill="black" font-size="13">• language_name (String)</text>
+                                <text x="520" y="615" fill="black" font-size="13">• track_kind (String)</text>
+                                <text x="520" y="640" fill="black" font-size="13">• is_auto (Boolean)</text>
+                                <text x="520" y="665" fill="black" font-size="13">• is_draft (Boolean)</text>
+                                <text x="520" y="690" fill="black" font-size="13">• caption_content (String)</text>
+                                <text x="520" y="715" fill="black" font-size="13">• fetched_time (DateTime)</text>
+                            </g>
+                            
+                            <!-- Tag Node -->
+                            <g class="node-group">
+                                <rect x="50" y="450" width="350" height="160" rx="10" fill="#ff6666" stroke="#cc0000" stroke-width="2"/>
+                                <text x="225" y="485" text-anchor="middle" fill="black" font-weight="bold" font-size="20">Tag</text>
+                                <text x="70" y="515" fill="black" font-size="13">• name (String)</text>
+                            </g>
+                            
+                            <!-- Relationships -->
+                            <g class="relationship-group">
+                                <!-- Channel to Video -->
+                                <line x1="400" y1="200" x2="500" y2="200" stroke="#333" stroke-width="3" marker-end="url(#arrowhead2)"/>
+                                <text x="450" y="195" text-anchor="middle" fill="#333" font-weight="bold" font-size="12">PUBLISHED_ON_YOUTUBE</text>
+                                
+                                <!-- Video to Comment -->
+                                <line x1="850" y1="210" x2="950" y2="210" stroke="#333" stroke-width="3" marker-end="url(#arrowhead2)"/>
+                                <text x="900" y="205" text-anchor="middle" fill="#333" font-weight="bold" font-size="12">COMMENT_ON_YOUTUBE_VIDEO</text>
+                                
+                                <!-- Comment to Reply -->
+                                <line x1="1125" y1="370" x2="1125" y2="450" stroke="#333" stroke-width="3" marker-end="url(#arrowhead2)"/>
+                                <text x="1145" y="410" text-anchor="middle" fill="#333" font-weight="bold" font-size="12">REPLY_TO_YOUTUBE_COMMENT</text>
+                                
+                                <!-- Video to Caption -->
+                                <line x1="675" y1="370" x2="675" y2="450" stroke="#333" stroke-width="3" marker-end="url(#arrowhead2)"/>
+                                <text x="685" y="410" text-anchor="middle" fill="#333" font-weight="bold" font-size="12">CAPTIONOFVIDEO</text>
+                                
+                                <!-- Video to Tag -->
+                                <line x1="500" y1="210" x2="400" y2="450" stroke="#333" stroke-width="3" marker-end="url(#arrowhead2)"/>
+                                <text x="450" y="330" text-anchor="middle" fill="#333" font-weight="bold" font-size="12">HAS_TAG</text>
+                            </g>
+                            
+                            <!-- Arrow marker definition -->
+                            <defs>
+                                <marker id="arrowhead2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                    <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+                                </marker>
+                            </defs>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="neo4j-section">
+                <h3>Node Types</h3>
+                
+                <h4><span class="platform-badge tiktok-badge">TikTok</span> Nodes</h4>
+                
+                <div class="node-type">
+                    <div class="node-header">TikTokUser</div>
+                    <div class="node-body">
+                        <p><strong>Properties:</strong> username, display_name, bio_description, bio_url, avatar_url, follower_count, following_count, likes_count, video_count, is_verified</p>
+                    </div>
+                </div>
+
+                <div class="node-type">
+                    <div class="node-header">TikTokVideo</div>
+                    <div class="node-body">
+                        <p><strong>Properties:</strong> video_id, video_description, create_time, region_code, share_count, view_count, like_count, comment_count, music_id, voice_to_text, is_stem_verified, video_duration, video_title, video_author_url, video_thumbnail_url, video_mention_list, video_label_content, video_tag_type, search_id, username</p>
+                    </div>
+                </div>
+
+                <div class="node-type">
+                    <div class="node-header">TikTokComment</div>
+                    <div class="node-body">
+                        <p><strong>Properties:</strong> comment_id, text, like_count, reply_count, create_time, username, video_id, parent_comment_id</p>
+                    </div>
+                </div>
+
+                <div class="node-type">
+                    <div class="node-header">Hashtag</div>
+                    <div class="node-body">
+                        <p><strong>Properties:</strong> id, name, description</p>
+                    </div>
+                </div>
+
+                <div class="node-type">
+                    <div class="node-header">Sticker</div>
+                    <div class="node-body">
+                        <p><strong>Properties:</strong> id, name</p>
+                    </div>
+                </div>
+
+                <h4><span class="platform-badge youtube-badge">YouTube</span> Nodes</h4>
+
+                <div class="node-type">
+                    <div class="node-header">YouTubeChannel</div>
+                    <div class="node-body">
+                        <p><strong>Properties:</strong> channel_id, title, view_count, subscriber_count, video_count, hidden_subscriber_count, description, keywords, country, topic_categories, username</p>
+                    </div>
+                </div>
+
+                <div class="node-type">
+                    <div class="node-header">YouTubeVideo</div>
+                    <div class="node-body">
+                        <p><strong>Properties:</strong> video_id, video_title, published_at, channel_id, video_description, channel_title, thumbnail_gridfs_id, view_count, like_count, comment_count, topic_categories, tags</p>
+                    </div>
+                </div>
+
+                <div class="node-type">
+                    <div class="node-header">YouTubeVideoComment</div>
+                    <div class="node-body">
+                        <p><strong>Properties:</strong> comment_id, channel_id, video_id, canReply, totalReplyCount, text, authorDisplayName, authorProfileImageUrl, authorChannelUrl, canRate, viewerRating, likeCount, publishedAt, updatedAt</p>
+                    </div>
+                </div>
+
+                <div class="node-type">
+                    <div class="node-header">YouTubeVideoReply</div>
+                    <div class="node-body">
+                        <p><strong>Properties:</strong> reply_id, channel_id, parent_id, text, authorDisplayName, authorProfileImageUrl, authorChannelUrl, canRate, viewerRating, likeCount, publishedAt, updatedAt, last_updated</p>
+                    </div>
+                </div>
+
+                <div class="node-type">
+                    <div class="node-header">YouTubeVideoCaption</div>
+                    <div class="node-body">
+                        <p><strong>Properties:</strong> caption_id, video_id, language, language_name, track_kind, is_auto, is_draft, caption_content, fetched_time</p>
+                    </div>
+                </div>
+
+                <div class="node-type">
+                    <div class="node-header">Tag</div>
+                    <div class="node-body">
+                        <p><strong>Properties:</strong> name</p>
+                    </div>
+                </div>
+
+                <h3>Relationship Types</h3>
+                
+                <div class="relationship-list">
+                    <div class="relationship-item">
+                        <div class="relationship-name">PUBLISHED_ON_TIKTOK</div>
+                        <div class="relationship-description">TikTokUser → TikTokVideo</div>
+                    </div>
+                    <div class="relationship-item">
+                        <div class="relationship-name">HAS_HASHTAG</div>
+                        <div class="relationship-description">TikTokVideo → Hashtag</div>
+                    </div>
+                    <div class="relationship-item">
+                        <div class="relationship-name">HAS_STICKER</div>
+                        <div class="relationship-description">TikTokVideo → Sticker</div>
+                    </div>
+                    <div class="relationship-item">
+                        <div class="relationship-name">POSTED_ON_TIKTOK_VIDEO</div>
+                        <div class="relationship-description">TikTokComment → TikTokVideo</div>
+                    </div>
+                    <div class="relationship-item">
+                        <div class="relationship-name">REPLIED_TO_TIKTOK_COMMENT</div>
+                        <div class="relationship-description">TikTokComment → TikTokComment</div>
+                    </div>
+                    <div class="relationship-item">
+                        <div class="relationship-name">PUBLISHED_ON_YOUTUBE</div>
+                        <div class="relationship-description">YouTubeChannel → YouTubeVideo</div>
+                    </div>
+                    <div class="relationship-item">
+                        <div class="relationship-name">HAS_TAG</div>
+                        <div class="relationship-description">YouTubeVideo → Tag</div>
+                    </div>
+                    <div class="relationship-item">
+                        <div class="relationship-name">COMMENT_ON_YOUTUBE_VIDEO</div>
+                        <div class="relationship-description">YouTubeVideoComment → YouTubeVideo</div>
+                    </div>
+                    <div class="relationship-item">
+                        <div class="relationship-name">REPLY_TO_YOUTUBE_COMMENT</div>
+                        <div class="relationship-description">YouTubeVideoReply → YouTubeVideoComment</div>
+                    </div>
+                    <div class="relationship-item">
+                        <div class="relationship-name">CAPTIONOFVIDEO</div>
+                        <div class="relationship-description">YouTubeVideoCaption → YouTubeVideo</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="data-flow" class="section">
+            <h2>🔄 Data Processing Flow</h2>
+            <div class="flow-section">
+                <div class="flow-steps">
+                    <div class="flow-step">
+                        <div class="flow-step-number">1</div>
+                        <div><strong>Data Ingestion</strong><br>Raw data fetched from TikTok/YouTube APIs</div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-step-number">2</div>
+                        <div><strong>MongoDB Storage</strong><br>Raw data stored with processing flags</div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-step-number">3</div>
+                        <div><strong>Neo4j Transformation</strong><br>Data transformed into graph structure</div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-step-number">4</div>
+                        <div><strong>Relationship Creation</strong><br>Connections established between entities</div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-step-number">5</div>
+                        <div><strong>Processing Flags</strong><br>transformed_to_neo4j flag tracks processing status</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="features" class="section">
+            <h2>✨ Key Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h5>🔄 Dual Storage</h5>
+                    <p>Raw data in MongoDB, graph data in Neo4j</p>
+                </div>
+                <div class="feature-card">
+                    <h5>🌍 Environment Support</h5>
+                    <p>Development and production configurations</p>
+                </div>
+                <div class="feature-card">
+                    <h5>📊 Processing Tracking</h5>
+                    <p>Flags prevent duplicate processing</p>
+                </div>
+                <div class="feature-card">
+                    <h5>🛡️ Error Handling</h5>
+                    <p>Robust error handling and logging</p>
+                </div>
+                <div class="feature-card">
+                    <h5>📈 Scalability</h5>
+                    <p>Bulk operations and pagination support</p>
+                </div>
+                <div class="feature-card">
+                    <h5>🔒 Data Integrity</h5>
+                    <p>Unique indexes and duplicate handling</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="volume" class="section">
+            <h2>📊 Data Volume Estimates</h2>
+            <div class="volume-estimates">
+                <p>Based on the DAG configurations:</p>
+                <div class="volume-item">
+                    <span><strong>TikTok Comments:</strong></span>
+                    <span>Up to 1,000 comments per video</span>
+                </div>
+                <div class="volume-item">
+                    <span><strong>TikTok Videos:</strong></span>
+                    <span>100 videos per user</span>
+                </div>
+                <div class="volume-item">
+                    <span><strong>YouTube Comments:</strong></span>
+                    <span>Up to 100 comments per video</span>
+                </div>
+                <div class="volume-item">
+                    <span><strong>YouTube Videos:</strong></span>
+                    <span>50 videos per channel</span>
+                </div>
+                <div class="volume-item">
+                    <span><strong>Captions:</strong></span>
+                    <span>Full text content for video accessibility</span>
+                </div>
+                <div class="volume-item">
+                    <span><strong>Metadata:</strong></span>
+                    <span>Rich metadata for analytics and insights</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🎯 Conclusion</h2>
+            <div class="overview">
+                <p>This comprehensive data structure enables complex social media analytics, influencer tracking, content analysis, and relationship mapping across <span class="platform-badge tiktok-badge">TikTok</span> and <span class="platform-badge youtube-badge">YouTube</span> platforms. The dual storage approach with <span class="platform-badge mongo-badge">MongoDB</span> for raw data and <span class="platform-badge neo4j-badge">Neo4j</span> for graph relationships provides a robust foundation for advanced analytics and insights.</p>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

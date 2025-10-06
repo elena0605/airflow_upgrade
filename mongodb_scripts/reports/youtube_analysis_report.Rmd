@@ -1,0 +1,546 @@
+---
+title: "YouTube Channel Analysis Report"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    code_folding: hide
+    code_menu: true
+    df_print: paged
+params:
+  data_path: NULL
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+library(corrplot)
+library(reshape2)
+library(viridis)
+library(tidyr)
+library(scales)
+library(jsonlite)
+
+# Set data path
+data_path <- params$data_path
+if (is.null(data_path)) {
+  # Use absolute path for now
+  data_path <- "/Users/bojansimoski/dev/airflow_upgrade/mongodb_scripts/output/youtube"
+}
+
+# Ensure data path exists
+if (!dir.exists(data_path)) {
+  stop("Data path does not exist: ", data_path)
+}
+
+print(paste("Loading data from:", data_path))
+```
+
+## Executive Summary
+
+This report provides a comprehensive analysis of YouTube channel data, examining channel performance, content characteristics, and engagement patterns. The analysis covers multiple dimensions including subscriber metrics, video performance, channel statistics, and geographic distribution.
+
+### Data Overview
+
+```{r data-overview, echo=FALSE}
+# Load basic statistics
+if (file.exists(file.path(data_path, "channel_basic_statistics.csv"))) {
+  channel_data <- read.csv(file.path(data_path, "channel_basic_statistics.csv"))
+  total_channels <- nrow(channel_data)
+  cat("**Total YouTube Channels Analyzed**:", total_channels, "\n")
+} else {
+  cat("Channel data not found\n")
+}
+
+# Load video statistics
+if (file.exists(file.path(data_path, "channel_video_statistics.csv"))) {
+  video_stats <- read.csv(file.path(data_path, "channel_video_statistics.csv"))
+  if (nrow(video_stats) > 0) {
+    total_videos <- video_stats$totalVideos[1]
+    unique_channels <- video_stats$uniqueChannels[1]
+    cat("**Total Videos Analyzed**:", total_videos, "\n")
+    cat("**Channels with Video Data**:", unique_channels, "\n")
+  }
+}
+
+# Load country data
+if (file.exists(file.path(data_path, "channel_by_country.csv"))) {
+  country_data <- read.csv(file.path(data_path, "channel_by_country.csv"))
+  total_countries <- nrow(country_data)
+  cat("**Countries Represented**:", total_countries, "\n")
+}
+```
+
+## 1. Channel Performance Analysis
+
+### Basic Channel Statistics
+
+```{r channel-stats, echo=FALSE}
+if (file.exists(file.path(data_path, "channel_basic_statistics.csv"))) {
+  channel_data <- read.csv(file.path(data_path, "channel_basic_statistics.csv"))
+  
+  # Calculate summary statistics
+  channel_summary <- channel_data %>%
+    summarise(
+      `Total Channels` = n(),
+      `Mean Views` = round(mean(Views, na.rm = TRUE), 0),
+      `Median Views` = round(median(Views, na.rm = TRUE), 0),
+      `Max Views` = max(Views, na.rm = TRUE),
+      `Mean Subscribers` = round(mean(Subscribers, na.rm = TRUE), 0),
+      `Median Subscribers` = round(median(Subscribers, na.rm = TRUE), 0),
+      `Max Subscribers` = max(Subscribers, na.rm = TRUE),
+      `Mean Videos` = round(mean(Videos, na.rm = TRUE), 1),
+      `Median Videos` = round(median(Videos, na.rm = TRUE), 1)
+    )
+  
+  kable(channel_summary, caption = "Channel Statistics Summary")
+  
+  # Top 10 channels by subscribers
+  top_channels <- channel_data %>%
+    arrange(desc(Subscribers)) %>%
+    head(10) %>%
+    select(Channel, Views, Subscribers, Videos, Views.Per.Video, Views.Per.Subscriber)
+  
+  kable(top_channels, caption = "Top 10 Channels by Subscriber Count")
+} else {
+  cat("Channel statistics data not available\n")
+}
+```
+
+### Channel Performance Visualization
+
+```{r channel-performance-plot, echo=FALSE}
+if (file.exists(file.path(data_path, "channel_basic_statistics.csv"))) {
+  channel_data <- read.csv(file.path(data_path, "channel_basic_statistics.csv"))
+  
+  # Create scatter plot of subscribers vs views
+  performance_plot <- ggplot(channel_data, aes(x = Subscribers, y = Views, size = Videos)) +
+    geom_point(alpha = 0.6, color = "steelblue") +
+    scale_x_log10(labels = comma_format()) +
+    scale_y_log10(labels = comma_format()) +
+    scale_size_continuous(name = "Video Count", range = c(1, 8)) +
+    labs(
+      title = "Channel Performance: Subscribers vs Views",
+      subtitle = "Bubble size represents video count",
+      x = "Subscribers (log scale)",
+      y = "Total Views (log scale)"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+      plot.subtitle = element_text(size = 12, hjust = 0.5)
+    )
+  
+  print(performance_plot)
+} else {
+  cat("Channel data not available for visualization\n")
+}
+```
+
+## 2. Geographic Distribution Analysis
+
+### Channel Distribution by Country
+
+```{r country-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "channel_by_country.csv"))) {
+  country_data <- read.csv(file.path(data_path, "channel_by_country.csv"))
+  
+  # Top 10 countries by channel count
+  top_countries <- country_data %>%
+    arrange(desc(Channel.Count)) %>%
+    head(10)
+  
+  # Create visualization
+  country_plot <- ggplot(top_countries, aes(x = reorder(Country, Channel.Count), y = Channel.Count, fill = Country)) +
+    geom_col(alpha = 0.8) +
+    geom_text(aes(label = Channel.Count), hjust = -0.1, size = 3.5, fontface = "bold") +
+    scale_fill_viridis_d() +
+    coord_flip() +
+    labs(
+      title = "Top 10 Countries by Channel Count",
+      subtitle = "Geographic distribution of YouTube channels",
+      x = "Country",
+      y = "Number of Channels",
+      fill = "Country"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+      plot.subtitle = element_text(size = 12, hjust = 0.5),
+      legend.position = "none"
+    ) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
+  
+  print(country_plot)
+  
+  kable(top_countries, caption = "Top 10 Countries by Channel Count")
+} else {
+  cat("Country data not available\n")
+}
+```
+
+### Channel Performance by Country
+
+```{r country-performance, echo=FALSE}
+if (file.exists(file.path(data_path, "channel_by_country.csv"))) {
+  country_data <- read.csv(file.path(data_path, "channel_by_country.csv"))
+  
+  # Calculate average metrics by country
+  country_metrics <- country_data %>%
+    mutate(
+      Avg_Views = round(Total.Views / Channel.Count, 0),
+      Avg_Subscribers = round(Total.Subscribers / Channel.Count, 0)
+    ) %>%
+    arrange(desc(Channel.Count)) %>%
+    head(10) %>%
+    select(Country, Channel.Count, Avg_Views, Avg_Subscribers)
+  
+  kable(country_metrics, caption = "Average Channel Performance by Country (Top 10)")
+} else {
+  cat("Country performance data not available\n")
+}
+```
+
+## 3. Content Category Analysis
+
+### Channel Distribution by Topic Category
+
+```{r topic-category-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "channel_by_topic_category.csv"))) {
+  topic_data <- read.csv(file.path(data_path, "channel_by_topic_category.csv"))
+  
+  # Clean up category names
+  topic_data <- topic_data %>%
+    mutate(
+      category_name = gsub(".*/", "", category),
+      category_name = gsub("_", " ", category_name),
+      category_name = tools::toTitleCase(category_name)
+    )
+  
+  # Top 10 categories by channel count
+  top_categories <- topic_data %>%
+    arrange(desc(channelCount)) %>%
+    head(10)
+  
+  # Create visualization
+  category_plot <- ggplot(top_categories, aes(x = reorder(category_name, channelCount), y = channelCount, fill = category_name)) +
+    geom_col(alpha = 0.8) +
+    geom_text(aes(label = channelCount), hjust = -0.1, size = 3.5, fontface = "bold") +
+    scale_fill_viridis_d() +
+    coord_flip() +
+    labs(
+      title = "Top 10 Categories by Channel Count",
+      subtitle = "Content category distribution",
+      x = "Category",
+      y = "Number of Channels",
+      fill = "Category"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+      plot.subtitle = element_text(size = 12, hjust = 0.5),
+      legend.position = "none"
+    ) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
+  
+  print(category_plot)
+  
+  kable(top_categories, caption = "Top 10 Categories by Channel Count")
+} else {
+  cat("Topic category data not available\n")
+}
+```
+
+### Category Performance Metrics
+
+```{r category-performance, echo=FALSE}
+if (file.exists(file.path(data_path, "channel_by_topic_category.csv"))) {
+  topic_data <- read.csv(file.path(data_path, "channel_by_topic_category.csv"))
+  
+  # Calculate performance metrics by category
+  category_performance <- topic_data %>%
+    mutate(
+      category_name = gsub(".*/", "", category),
+      category_name = gsub("_", " ", category_name),
+      category_name = tools::toTitleCase(category_name),
+      Avg_Views_Per_Channel = round(avgViews, 0),
+      Avg_Subs_Per_Channel = round(avgSubs, 0)
+    ) %>%
+    arrange(desc(channelCount)) %>%
+    head(10) %>%
+    select(category_name, channelCount, Avg_Views_Per_Channel, Avg_Subs_Per_Channel, totalVideos)
+  
+  kable(category_performance, caption = "Category Performance Metrics (Top 10)")
+} else {
+  cat("Category performance data not available\n")
+}
+```
+
+## 4. Video Content Analysis
+
+### Channel Video Statistics
+
+```{r video-stats-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "channel_video_statistics.csv"))) {
+  video_stats <- read.csv(file.path(data_path, "channel_video_statistics.csv"))
+  
+  # Extract key metrics
+  if (nrow(video_stats) > 0) {
+    stats_summary <- data.frame(
+      Metric = c("Total Videos", "Unique Channels", "Channels with Exact Match", "Channels with Trimmed Match", "Channels with No Match"),
+      Value = c(
+        video_stats$totalVideos[1],
+        video_stats$uniqueChannels[1],
+        video_stats$channelsWithExactMatch[1],
+        video_stats$channelsWithTrimmedMatch[1],
+        video_stats$channelsWithNoMatch[1]
+      )
+    )
+    
+    kable(stats_summary, caption = "Video Statistics Summary")
+    
+    # Calculate percentages
+    total_channels <- video_stats$uniqueChannels[1]
+    
+    # Handle non-numeric values in CSV
+    exact_match <- as.numeric(video_stats$channelsWithExactMatch[1])
+    trimmed_match <- as.numeric(video_stats$channelsWithTrimmedMatch[1])
+    no_match <- as.numeric(video_stats$channelsWithNoMatch[1])
+    
+    # Replace NA values with 0
+    exact_match <- ifelse(is.na(exact_match), 0, exact_match)
+    trimmed_match <- ifelse(is.na(trimmed_match), 0, trimmed_match)
+    no_match <- ifelse(is.na(no_match), 0, no_match)
+    
+    exact_match_pct <- round(exact_match / total_channels * 100, 1)
+    trimmed_match_pct <- round(trimmed_match / total_channels * 100, 1)
+    no_match_pct <- round(no_match / total_channels * 100, 1)
+    
+    cat("**Data Quality Metrics:**\n")
+    cat("- Exact Match:", exact_match_pct, "%\n")
+    cat("- Trimmed Match:", trimmed_match_pct, "%\n")
+    cat("- No Match:", no_match_pct, "%\n")
+  }
+} else {
+  cat("Video statistics data not available\n")
+}
+```
+
+### Video Comments Analysis
+
+```{r comments-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "video_comments_stats.csv"))) {
+  comments_data <- read.csv(file.path(data_path, "video_comments_stats.csv"))
+  
+  # Parse JSON data from comments_stats column
+  if (nrow(comments_data) > 0 && "comments_stats" %in% names(comments_data)) {
+    # Extract data from JSON
+    comments_stats <- comments_data$comments_stats[1]
+    if (!is.na(comments_stats) && comments_stats != "") {
+      # Parse the JSON string
+      stats_json <- jsonlite::fromJSON(comments_stats)
+      
+      cat("**Comments Analysis Summary:**\n")
+      cat("- Total Videos with Comments:", stats_json$total_videos_with_comments, "\n")
+      cat("- Total Comments:", stats_json$total_comments, "\n")
+      cat("- Total Likes:", stats_json$total_likes, "\n")
+      cat("- Total Replies:", stats_json$total_replies, "\n")
+      cat("- Average Comments per Video:", stats_json$comments_per_video$avg, "\n")
+      cat("- Average Likes per Video:", stats_json$likes_per_video$avg, "\n")
+      cat("- Average Replies per Video:", stats_json$replies_per_video$avg, "\n")
+      cat("- Likes per Comment:", stats_json$engagement_metrics$likes_per_comment, "\n")
+      cat("- Replies per Comment:", stats_json$engagement_metrics$replies_per_comment, "\n")
+    } else {
+      cat("Comments data not available\n")
+    }
+  } else {
+    cat("Comments data not available\n")
+  }
+} else {
+  cat("Comments data not available\n")
+}
+```
+
+### Video Replies Analysis
+
+```{r replies-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "video_replies_stats.csv"))) {
+  replies_data <- read.csv(file.path(data_path, "video_replies_stats.csv"))
+  
+  # Parse JSON data from replies_stats column
+  if (nrow(replies_data) > 0 && "replies_stats" %in% names(replies_data)) {
+    # Extract data from JSON
+    replies_stats <- replies_data$replies_stats[1]
+    if (!is.na(replies_stats) && replies_stats != "") {
+      # Parse the JSON string
+      stats_json <- jsonlite::fromJSON(replies_stats)
+      
+      cat("**Replies Analysis Summary:**\n")
+      cat("- Total Videos with Replies:", stats_json$total_videos_with_replies, "\n")
+      cat("- Total Replies:", stats_json$total_replies, "\n")
+      cat("- Total Likes on Replies:", stats_json$total_likes_on_replies, "\n")
+      cat("- Average Replies per Video:", stats_json$replies_per_video$avg, "\n")
+      cat("- Average Likes per Reply:", stats_json$likes_per_reply$avg, "\n")
+    } else {
+      cat("Replies data not available\n")
+    }
+  } else {
+    cat("Replies data not available\n")
+  }
+} else {
+  cat("Replies data not available\n")
+}
+```
+
+## 5. Data Quality Analysis
+
+### Channel Empty Fields Analysis
+
+```{r empty-fields-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "channel_empty_fields.csv"))) {
+  empty_fields_data <- read.csv(file.path(data_path, "channel_empty_fields.csv"))
+  
+  if (nrow(empty_fields_data) > 0) {
+    cat("**Channel Empty Fields Analysis:**\n")
+    cat("- Total Channels with Empty Fields:", nrow(empty_fields_data), "\n")
+    
+    # Show first few channels with empty fields
+    if (nrow(empty_fields_data) > 0) {
+      cat("\n**Sample Channels with Empty Fields:**\n")
+      for (i in 1:min(5, nrow(empty_fields_data))) {
+        cat("-", empty_fields_data$Channel[i], ":", empty_fields_data$Empty.Fields[i], "\n")
+      }
+    }
+  } else {
+    cat("No empty fields data available\n")
+  }
+} else {
+  cat("Empty fields data not available\n")
+}
+```
+
+### Channel Video Empty Fields Analysis
+
+```{r video-empty-fields, echo=FALSE}
+if (file.exists(file.path(data_path, "channel_video_empty_fields.csv"))) {
+  video_empty_data <- read.csv(file.path(data_path, "channel_video_empty_fields.csv"))
+  
+  if (nrow(video_empty_data) > 0) {
+    cat("**Video Empty Fields Analysis:**\n")
+    cat("- Total Videos Analyzed:", video_empty_data$totalDocuments[1], "\n")
+    
+    # Parse field analysis if available
+    if ("fieldAnalysis" %in% names(video_empty_data) && !is.na(video_empty_data$fieldAnalysis[1])) {
+      cat("- Field Analysis:", video_empty_data$fieldAnalysis[1], "\n")
+    }
+  } else {
+    cat("No video empty fields data available\n")
+  }
+} else {
+  cat("Video empty fields data not available\n")
+}
+```
+
+## 6. Channel Descriptions Analysis
+
+### User Descriptions Export
+
+```{r descriptions-analysis, echo=FALSE}
+if (file.exists(file.path(data_path, "user_descriptions.csv"))) {
+  descriptions_data <- read.csv(file.path(data_path, "user_descriptions.csv"))
+  
+  cat("**Total Channels with Descriptions**:", nrow(descriptions_data), "\n")
+  
+  # Sample of descriptions
+  sample_descriptions <- descriptions_data %>%
+    head(5) %>%
+    select(username, description)
+  
+  kable(sample_descriptions, caption = "Sample Channel Descriptions")
+} else {
+  cat("Channel descriptions data not available\n")
+}
+```
+
+## 7. Performance Insights
+
+### Channel Performance Distribution
+
+```{r performance-distribution, echo=FALSE}
+if (file.exists(file.path(data_path, "channel_basic_statistics.csv"))) {
+  channel_data <- read.csv(file.path(data_path, "channel_basic_statistics.csv"))
+  
+  # Create performance categories
+  performance_categories <- channel_data %>%
+    mutate(
+      Subscriber_Category = case_when(
+        Subscribers >= 1000000 ~ "1M+",
+        Subscribers >= 100000 ~ "100K-1M",
+        Subscribers >= 10000 ~ "10K-100K",
+        Subscribers >= 1000 ~ "1K-10K",
+        TRUE ~ "Under 1K"
+      ),
+      Views_Category = case_when(
+        Views >= 10000000 ~ "10M+",
+        Views >= 1000000 ~ "1M-10M",
+        Views >= 100000 ~ "100K-1M",
+        Views >= 10000 ~ "10K-100K",
+        TRUE ~ "Under 10K"
+      )
+    )
+  
+  # Subscriber distribution
+  sub_dist <- performance_categories %>%
+    count(Subscriber_Category) %>%
+    mutate(Percentage = round(n / sum(n) * 100, 1)) %>%
+    arrange(factor(Subscriber_Category, levels = c("1M+", "100K-1M", "10K-100K", "1K-10K", "Under 1K")))
+  
+  kable(sub_dist, caption = "Channel Distribution by Subscriber Count")
+  
+  # Views distribution
+  views_dist <- performance_categories %>%
+    count(Views_Category) %>%
+    mutate(Percentage = round(n / sum(n) * 100, 1)) %>%
+    arrange(factor(Views_Category, levels = c("10M+", "1M-10M", "100K-1M", "10K-100K", "Under 10K")))
+  
+  kable(views_dist, caption = "Channel Distribution by Total Views")
+} else {
+  cat("Channel data not available for performance distribution\n")
+}
+```
+
+## 8. Data Quality and Methodology
+
+### Data Sources and Processing
+
+This analysis is based on data extracted from YouTube channel information and video content. The data includes:
+
+- **Channel Information**: Subscriber counts, view counts, video counts, country, topic categories
+- **Content Metrics**: Video performance, comment counts, reply counts
+- **Geographic Data**: Country distribution and performance by region
+- **Content Analysis**: Topic category distribution and performance
+
+### Methodology Notes
+
+- **Performance Metrics**: Views per video and views per subscriber are calculated from total counts
+- **Data Quality**: All metrics are calculated from available data; missing values are excluded from calculations
+- **Sample Size**: Analysis covers all channels with available data in the dataset
+- **Geographic Mapping**: Countries are identified from channel metadata
+
+### Limitations
+
+- Data represents a snapshot in time and may not reflect current channel status
+- Some metrics may be affected by platform algorithm changes
+- Channel privacy settings may limit data availability for some profiles
+- Geographic data depends on channel-provided country information
+
+---
+
+**Report Generated**: `r Sys.Date()`  
+**Data Source**: YouTube API and channel data  
+**Analysis Period**: Current dataset
