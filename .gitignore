@@ -14,10 +14,12 @@ airflow-webserver.pid
 # Ignored __pycache__ folders inside subdirectories
 dags/__pycache__/
 plugins/__pycache__/
-
 # Secrets and sensitive config
 .env
+environment_variables.json
 
+# MongoDB analysis output files
+mongodb_scripts/output/
 
 # macOS system file
 .DS_Store
