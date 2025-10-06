@@ -51,6 +51,8 @@ x-airflow-common:
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
   # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.0.4}
   build: .
+  env_file:
+    - .env
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -100,7 +102,7 @@ services:
     restart: always
   
   mongodb:
-    image: mongo:latest
+    image: mongo:noble
     container_name: mongodb
     ports:
       - "27017:27017"
@@ -108,8 +110,8 @@ services:
       - mongodb-data:/data/db
       - ${AIRFLOW_PROJ_DIR:-.}/mongodb_scripts:/opt/airflow/mongodb_scripts
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME} 
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD} 
+      MONGO_INITDB_ROOT_USERNAME: airflow 
+      MONGO_INITDB_ROOT_PASSWORD: tiktok 
     restart: always
     healthcheck:
       test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
