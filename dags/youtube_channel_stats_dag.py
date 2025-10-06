@@ -125,15 +125,15 @@ with DAG(
 
         def transform_to_graph(**context):
             # Get new channel IDs from previous task
-             new_channel_ids = context['task_instance'].xcom_pull(
-                task_ids='fetch_and_store_channel_stats',
-                key='new_channel_ids'
-             )
+            #  new_channel_ids = context['task_instance'].xcom_pull(
+            #     task_ids='fetch_and_store_channel_stats',
+            #     key='new_channel_ids'
+            #  )
              
-             if not new_channel_ids:
-                logger.info("No new channels to transform")
-                return
-             logger.info(f"Transforming {len(new_channel_ids)} new channels to graph") 
+            #  if not new_channel_ids:
+            #     logger.info("No new channels to transform")
+            #     return
+            #  logger.info(f"Transforming {len(new_channel_ids)} new channels to graph") 
           
              # Choose MongoDB connection based on environment
              mongo_conn_id = "mongo_prod" if airflow_env == "production" else "mongo_default"
@@ -153,7 +153,7 @@ with DAG(
              with driver.session(database="neo4j") as session:
                  # Only fetch new channels from MongoDB
                  documents = collection.find({
-                    "channel_id": {"$in": new_channel_ids},
+                    
                     "transformed_to_neo4j": False  # Only get untransformed channels
                  })
 

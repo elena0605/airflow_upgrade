@@ -1,10 +1,12 @@
 from datetime import datetime, timedelta
+import pendulum
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.mongo.hooks.mongo import MongoHook
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook
 from callbacks import task_failure_callback, task_success_callback
 from pymongo.errors import BulkWriteError
+from pymongo import UpdateOne
 import logging
 import tiktok_etl as te
 from time import sleep
@@ -12,6 +14,8 @@ from requests.exceptions import HTTPError
 import os
 # Set up logging
 logger = logging.getLogger("airflow.task")
+
+local_tz = pendulum.timezone("Europe/Amsterdam")
 
 # Get environment variables 
 airflow_env = os.getenv("AIRFLOW_ENV", "development")
@@ -31,8 +35,8 @@ with DAG(
     "tiktok_video_comments_dag",
     default_args=default_args,
     description="DAG to fetch and store TikTok video comments",
-    schedule=None,
-    start_date=datetime(2025, 2, 13),
+    schedule="0 16 * * *",
+    start_date=pendulum.datetime(2025, 2, 13, tz=local_tz),
     catchup=False,
     tags=['tiktok_comments'],
 ) as dag:
@@ -56,7 +60,8 @@ with DAG(
             # Get only videos that don't have comments fetched yet
             video_documents = videos_collection.find(
                 {"comments_fetched": {"$ne": True}},
-                {"video_id": 1, "username": 1, "_id": 0}
+                {"video_id": 1, "username": 1, "_id": 0},
+                no_cursor_timeout=True
             )
             
             videos_processed = 0
@@ -139,9 +144,11 @@ with DAG(
             logger.error(f"Error in fetch_and_store_comments: {e}", exc_info=True)
             raise
 
+        finally:
+            # Close the cursor
+            video_documents.close()
+
     def transform_comments_to_graph(**context):
-              
-        # Connect to MongoDB
         mongo_conn_id = "mongo_prod" if airflow_env == "production" else "mongo_default"
         mongo_hook = MongoHook(mongo_conn_id=mongo_conn_id)
         mongo_client = mongo_hook.get_conn()
@@ -149,99 +156,97 @@ with DAG(
         db = mongo_client[db_name]
         comments_collection = db.tiktok_video_comments
 
-        # Connect to Neo4j
         neo4j_conn_id = "neo4j_prod" if airflow_env == "production" else "neo4j_default"
-        hook = Neo4jHook(conn_id=neo4j_conn_id)
-        driver = hook.get_conn()
+        neo4j_hook = Neo4jHook(conn_id=neo4j_conn_id)
+        driver = neo4j_hook.get_conn()
 
-        with driver.session() as session:
+        batch_size = 500
+        comments_processed = 0
+
+        # --- Explicit MongoDB session ---
+        with mongo_client.start_session() as session:
+            comment_cursor = comments_collection.find(
+                {"transformed_to_neo4j": False},
+                no_cursor_timeout=True,
+                session=session
+            ).batch_size(batch_size)
+
+            logger.info("Starting comment transformation from MongoDB to Neo4j")
+
             try:
-                # Fetch only comments that haven't been processed for Neo4j
-                comments = comments_collection.find(
-                 {"transformed_to_neo4j": False}    
-                )
-                comments_processed = 0
+                batch_comments = []
+                for comment in comment_cursor:
+                    batch_comments.append(comment)
 
-                for comment in comments:
-                    try:
-                        comment_id = comment.get("id")
-                        video_id = comment.get("video_id")
-                        parent_comment_id = comment.get("parent_comment_id")
+                    if len(batch_comments) >= batch_size:
+                        comments_processed += process_comment_batch(batch_comments, driver, comments_collection)
+                        batch_comments = []
 
-                        is_reply = parent_comment_id != video_id
+                if batch_comments:
+                    comments_processed += process_comment_batch(batch_comments, driver, comments_collection)
 
-                        if is_reply:
-                            # Comment is a reply to another comment
-                            session.run(
-                                """
-                                MERGE (c:TikTokComment {comment_id: $comment_id})
-                                ON CREATE SET
-                                    c.text = $text,
-                                    c.like_count = $like_count,
-                                    c.reply_count = $reply_count,
-                                    c.create_time = datetime($create_time),
-                                    c.username = $username,
-                                    c.video_id = $video_id,
-                                    c.comment_id = $comment_id,
-                                    c.parent_comment_id = $parent_comment_id
-
-                                MERGE (parent:TikTokComment {comment_id: $parent_comment_id})
-                                MERGE (c)-[:REPLIED_TO_TIKTOK_COMMENT]->(parent)
-                                """,
-                                comment_id=comment_id,
-                                parent_comment_id=parent_comment_id,
-                                text=comment.get("text"),
-                                like_count=comment.get("like_count"),
-                                reply_count=comment.get("reply_count"),
-                                create_time=comment.get("create_time"),
-                                username=comment.get("username"),
-                                video_id=video_id
-                            )
-                        else:
-                            # Top-level comment on video
-                            session.run(
-                                """
-                                MATCH (v:TikTokVideo {video_id: $video_id})
-                                MERGE (c:TikTokComment {comment_id: $comment_id})
-                                ON CREATE SET
-                                    c.text = $text,
-                                    c.like_count = $like_count,
-                                    c.reply_count = $reply_count,
-                                    c.create_time = datetime($create_time),
-                                    c.username = $username,
-                                    c.video_id = $video_id,
-                                    c.comment_id = $comment_id,
-                                    c.parent_comment_id = $parent_comment_id
-
-                                MERGE (c)-[:POSTED_ON_TIKTOK_VIDEO]->(v)
-                                """,
-                                comment_id=comment_id,
-                                parent_comment_id=parent_comment_id,
-                                text=comment.get("text"),
-                                like_count=comment.get("like_count"),
-                                reply_count=comment.get("reply_count"),
-                                create_time=comment.get("create_time"),
-                                username=comment.get("username"),
-                                video_id=video_id
-                            )
-
-                        # Mark comment as processed
-                        comments_collection.update_one(
-                            {"_id": comment["_id"]},
-                            {"$set": {"transformed_to_neo4j": True}}
-                        )
-                        comments_processed += 1
-                        logger.debug(f"Processed comment {comment_id} for video {video_id}")
-                        
-                    except Exception as e:
-                        logger.error(f"Error processing comment {comment.get('id')}: {e}", exc_info=True)
-                        continue  # Continue with next comment even if one fails
-
-                logger.info(f"Successfully processed {comments_processed} comments to Neo4j")
+                if comments_processed == 0:
+                    logger.info(f"No comments to process")
+                    return
                 
+                logger.info(f"Successfully processed {comments_processed} comments to Neo4j")
+
             except Exception as e:
                 logger.error(f"Error in transform_comments_to_graph: {e}", exc_info=True)
                 raise
+
+            finally:
+                comment_cursor.close()
+    
+    def process_comment_batch(batch_comments, driver, comments_collection):
+        """
+        Inserts a batch of top-level comments into Neo4j and marks them as processed in MongoDB
+        """
+        if not batch_comments:
+            return 0
+        
+        neo4j_batch = []
+        bulk_ops = []
+
+        for comment in batch_comments:
+            neo4j_batch.append({
+                "comment_id": comment.get("id"),
+                "video_id": comment.get("video_id"),
+                "text": comment.get("text"),
+                "like_count": comment.get("like_count"),
+                "reply_count": comment.get("reply_count"),
+                "create_time": comment.get("create_time"),
+                "username": comment.get("username")
+            })
+
+            # Prepare bulk update for MongoDB
+            bulk_ops.append(
+                UpdateOne({"_id": comment["_id"]}, {"$set": {"transformed_to_neo4j": True}})
+            )
+
+        # Insert batch into Neo4j
+        with driver.session() as session:
+            session.run("""
+            UNWIND $comments AS c
+            MERGE (comment:TikTokComment {comment_id: c.comment_id})
+            ON CREATE SET
+                comment.text = c.text,
+                comment.like_count = c.like_count,
+                comment.reply_count = c.reply_count,
+                comment.create_time = datetime(c.create_time),
+                comment.username = c.username,
+                comment.video_id = c.video_id
+
+            MERGE (v:TikTokVideo {video_id: c.video_id})
+            MERGE (comment)-[:POSTED_ON_TIKTOK_VIDEO]->(v)
+            """, comments=neo4j_batch)
+
+        # Update MongoDB as processed in bulk
+        if bulk_ops:
+            comments_collection.bulk_write(bulk_ops)
+
+        logger.info(f"Processed {len(batch_comments)} comments to Neo4j")
+        return len(batch_comments)
 
     #Define tasks
     fetch_and_store_comments_task = PythonOperator(
@@ -256,4 +261,4 @@ with DAG(
 
     # Set task dependencies
     fetch_and_store_comments_task >> transform_comments_to_graph_task 
-     
+    #transform_comments_to_graph_task 
