@@ -78,6 +78,7 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     - ${AIRFLOW_PROJ_DIR:-.}/mongodb_scripts:/opt/airflow/mongodb_scripts  
+    - ${AIRFLOW_PROJ_DIR:-.}/neo4j_scripts:/opt/airflow/neo4j_scripts
 
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
