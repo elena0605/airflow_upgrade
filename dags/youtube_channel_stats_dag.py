@@ -94,47 +94,34 @@ with DAG(
                     channel_stats = ye.get_channels_statistics(channel_id)
 
                     if channel_stats is None:
-                       raise AirflowFailException(f"Failed to fetch statistics for channel ID: {channel_id}") 
+                       logger.warning(f"Skipping channel {username} ({channel_id}) because no data was returned")
+                       continue
 
                     channel_stats['transformed_to_neo4j'] = False
                     channel_stats['timestamp'] = datetime.now() 
                     channel_stats['username'] = username
-
-                    try:
-                        collection.insert_one(channel_stats)
-                        new_channel_ids.append(channel_id)  # Track successful insert
-                        logger.info(f"Stored new channel: {username}")
-
-                    except DuplicateKeyError as e: 
-                        # Check if it needs transformation
-                        existing_doc = collection.find_one(
-                            {"channel_id": channel_id, "transformed_to_neo4j": False}
-                        )
-                        if existing_doc:
-                            new_channel_ids.append(channel_id)
-                            logger.info(f"Channel {username} exists but needs transformation")    
-                        else:
-                            logger.info(f"Channel {username} already exists, skipping")
+                    channel_stats['view_count'] = int(channel_stats.get('view_count', 0))
+                    channel_stats['subscriber_count'] = int(channel_stats.get('subscriber_count', 0))
+                    channel_stats['video_count'] = int(channel_stats.get('video_count', 0))
+                    
+                    collection.update_one(
+                        {"channel_id": channel_id},
+                        {"$set": channel_stats},
+                        upsert=True
+                    )
+                    new_channel_ids.append(channel_id)
+                    logger.info(f"Stored new channel: {username}")
 
                 except Exception as e:
                     logger.error(f"Error processing {username}: {e}")
-                    raise e
+                    continue
              # Pass new channels to transform task
              context['task_instance'].xcom_push(key='new_channel_ids', value=new_channel_ids)
              logger.info(f"Stored {len(new_channel_ids)} new channels")
 
         def transform_to_graph(**context):
-            # Get new channel IDs from previous task
-            #  new_channel_ids = context['task_instance'].xcom_pull(
-            #     task_ids='fetch_and_store_channel_stats',
-            #     key='new_channel_ids'
-            #  )
-             
-            #  if not new_channel_ids:
-            #     logger.info("No new channels to transform")
-            #     return
-            #  logger.info(f"Transforming {len(new_channel_ids)} new channels to graph") 
-          
+           
+        
              # Choose MongoDB connection based on environment
              mongo_conn_id = "mongo_prod" if airflow_env == "production" else "mongo_default"
              mongo_hook = MongoHook(mongo_conn_id=mongo_conn_id)
@@ -176,7 +163,9 @@ with DAG(
                             c.keywords = $keywords,
                             c.country = $country,
                             c.topic_categories = $topics,
-                            c.username = $username
+                            c.username = $username,
+                            c.banner_external_url = $banner_external_url,
+                            c.thumbnail_url = $thumbnail_url
                         """,
                         channel_id = doc.get("channel_id"),
                         title = doc.get("title"),
@@ -188,7 +177,9 @@ with DAG(
                         keywords = doc.get("keywords", []),
                         country = doc.get("country", "Unknown"),
                         topics = doc.get("topic_categories", []),
-                        username = doc.get("username", "")
+                        username = doc.get("username", ""),
+                        banner_external_url = doc.get("banner_external_url"),
+                        thumbnail_url = doc.get("thumbnail_url")
                     )
                     # Mark as transformed in MongoDB
                     collection.update_one(

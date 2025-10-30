@@ -132,94 +132,97 @@ with DAG(
 
 
         
-        def transform_to_graph(**context):
-         try:    
-            # Choose MongoDB connection based on environment
-            mongo_conn_id = "mongo_prod" if airflow_env == "production" else "mongo_default"
-            hook = MongoHook(mongo_conn_id=mongo_conn_id)
-            client = hook.get_conn()
-            # Choose database based on environment
-            db_name = "rbl" if airflow_env == "production" else "airflow_db"
-            db = client[db_name]
-            collection = db.youtube_video_comments           
+        # def transform_to_graph(**context):
+        #  try:    
+        #     # Choose MongoDB connection based on environment
+        #     mongo_conn_id = "mongo_prod" if airflow_env == "production" else "mongo_default"
+        #     hook = MongoHook(mongo_conn_id=mongo_conn_id)
+        #     client = hook.get_conn()
+        #     # Choose database based on environment
+        #     db_name = "rbl" if airflow_env == "production" else "airflow_db"
+        #     db = client[db_name]
+        #     collection = db.youtube_video_comments           
 
-            # Choose Neo4j connection based on environment
-            neo4j_conn_id = "neo4j_prod" if airflow_env == "production" else "neo4j_default"
-            hook = Neo4jHook(conn_id=neo4j_conn_id) 
-            driver = hook.get_conn()
+        #     # Choose Neo4j connection based on environment
+        #     neo4j_conn_id = "neo4j_prod" if airflow_env == "production" else "neo4j_default"
+        #     hook = Neo4jHook(conn_id=neo4j_conn_id) 
+        #     driver = hook.get_conn()
 
-            with driver.session() as session:
-                # Only fetch untransformed comments
-                documents = collection.find({
+        #     with driver.session() as session:
+        #         # Only fetch untransformed comments
+        #         documents = collection.find({
                  
-                  "transformed_to_neo4j": False
-                })            
+        #           "transformed_to_neo4j": False
+        #         })            
 
-                comments_processed = 0
+        #         comments_processed = 0
 
-                for doc in documents:
-                 try:  
-                    session.run(
-                        """
-                        MERGE(c:YouTubeVideoComment {comment_id: $comment_id})
-                        MERGE(v:YouTubeVideo {video_id: $video_id})
-                        SET
-                          c.comment_id = $comment_id,
-                          c.channel_id = $channel_id,
-                          c.video_id = $video_id,
-                          c.canReply = $canReply,
-                          c.totalReplyCount = $totalReplyCount,
-                          c.text = $text,
-                          c.authorDisplayName = $authorDisplayName,
-                          c.authorProfileImageUrl = $authorProfileImageUrl,
-                          c.authorChannelUrl = $authorChannelUrl,
-                          c.canRate = $canRate,
-                          c.viewerRating = $viewerRating,
-                          c.likeCount = $likeCount,
-                          c.publishedAt =$publishedAt,
-                          c.updatedAt = $updatedAt
-                          MERGE (c)-[:COMMENT_ON_YOUTUBE_VIDEO]->(v)
-                        """,
-                        comment_id = doc.get("comment_id"),
-                        channel_id = doc.get("channel_id"),
-                        video_id = doc.get("video_id"),
-                        canReply = doc.get("canReply"),
-                        totalReplyCount = doc.get("totalReplyCount"),
-                        text = doc.get("text"),
-                        authorDisplayName = doc.get("authorDisplayName"),
-                        authorProfileImageUrl = doc.get("authorProfileImageUrl"),
-                        authorChannelUrl = doc.get("authorChannelUrl"),
-                        canRate = doc.get("canRate"),
-                        viewerRating = doc.get("viewerRating"),
-                        likeCount = doc.get("likeCount"),
-                        publishedAt = doc.get("publishedAt"),
-                        updatedAt = doc.get("updatedAt"),
-                    )
-                    # Mark as transformed in MongoDB
-                    collection.update_one(
-                        {"comment_id": doc["comment_id"]},
-                        {"$set": {"transformed_to_neo4j": True}}
-                    )
-                    comments_processed += 1
-                    logger.info(f"Transformed comment {doc.get('comment_id')} for video {doc.get('video_id')}")
+        #         for doc in documents:
+        #          try:  
+        #             session.run(
+        #                 """
+        #                 MERGE(c:YouTubeVideoComment {comment_id: $comment_id})
+        #                 MERGE(v:YouTubeVideo {video_id: $video_id})
+        #                 SET
+        #                   c.comment_id = $comment_id,
+        #                   c.channel_id = $channel_id,
+        #                   c.video_id = $video_id,
+        #                   c.canReply = $canReply,
+        #                   c.totalReplyCount = $totalReplyCount,
+        #                   c.text = $text,
+        #                   c.authorDisplayName = $authorDisplayName,
+        #                   c.authorProfileImageUrl = $authorProfileImageUrl,
+        #                   c.authorChannelUrl = $authorChannelUrl,
+        #                   c.authorChannelId = $authorChannelId,
+        #                   c.canRate = $canRate,
+        #                   c.viewerRating = $viewerRating,
+        #                   c.likeCount = $likeCount,
+        #                   c.publishedAt =$publishedAt,
+        #                   c.updatedAt = $updatedAt
+        #                 MERGE (c)-[:COMMENT_ON_YOUTUBE_VIDEO]->(v)
+        #                 """,
+        #                 comment_id = doc.get("comment_id"),
+        #                 channel_id = doc.get("channel_id"),
+        #                 video_id = doc.get("video_id"),
+        #                 canReply = doc.get("canReply"),
+        #                 totalReplyCount = doc.get("totalReplyCount"),
+        #                 text = doc.get("text"),
+        #                 authorDisplayName = doc.get("authorDisplayName"),
+        #                 authorProfileImageUrl = doc.get("authorProfileImageUrl"),
+        #                 authorChannelUrl = doc.get("authorChannelUrl"),
+        #                 authorChannelId = doc.get("authorChannelId"),
+        #                 canRate = doc.get("canRate"),
+        #                 viewerRating = doc.get("viewerRating"),
+        #                 likeCount = doc.get("likeCount"),
+        #                 publishedAt = doc.get("publishedAt"),
+        #                 updatedAt = doc.get("updatedAt"),
+        #             )
+        #             # Mark as transformed in MongoDB
+        #             collection.update_one(
+        #                 {"comment_id": doc["comment_id"]},
+        #                 {"$set": {"transformed_to_neo4j": True}}
+        #             )
+        #             comments_processed += 1
+        #             logger.info(f"Transformed comment {doc.get('comment_id')} for video {doc.get('video_id')}")
 
-                 except Exception as e:
-                    logger.error(f"Error transforming comment {doc.get('comment_id')}: {e}")
-                    continue
+        #          except Exception as e:
+        #             logger.error(f"Error transforming comment {doc.get('comment_id')}: {e}")
+        #             continue
 
-            logger.info(f"Successfully transformed {comments_processed} comments to Neo4j")
-         except Exception as e:  
-                    logger.error(f"Error in transforming comments to Neo4j: {e}")
-                    raise
+        #     logger.info(f"Successfully transformed {comments_processed} comments to Neo4j")
+        #  except Exception as e:  
+        #             logger.error(f"Error in transforming comments to Neo4j: {e}")
+        #             raise
 
         fetch_and_store_video_comments_task = PythonOperator(
             task_id = 'fetch_and_store_video_comments',
             python_callable = fetch_and_store_video_comments,
         )
 
-        transform_to_graph_task = PythonOperator(
-            task_id = 'transform_to_graph',
-            python_callable = transform_to_graph,
-        )
+        # transform_to_graph_task = PythonOperator(
+        #     task_id = 'transform_to_graph',
+        #     python_callable = transform_to_graph,
+        # )
 
-        fetch_and_store_video_comments_task >> transform_to_graph_task
+        # fetch_and_store_video_comments_task >> transform_to_graph_task
+        fetch_and_store_video_comments_task

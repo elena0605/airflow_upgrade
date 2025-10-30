@@ -49,7 +49,7 @@ with DAG(
                 context['ti'].xcom_push(key='channels_ids', value=channels_ids)
                 return channels_ids 
             except Exception as e:
-                logger.error(f"Error while loading channles_id: {e}")
+                logger.error(f"Error while loading channels_ids: {e}")
                 raise
 
         def fetch_and_store_channel_videos(**context):
@@ -89,7 +89,10 @@ with DAG(
                         for video in videos:
                             video['transformed_to_neo4j'] = False  # Add transformation flag
                             video['timestamp'] = datetime.now()
-                            
+                            video['username'] = username
+                            video['view_count'] = int(video.get('view_count', 0))
+                            video['like_count'] = int(video.get('like_count', 0))
+                            video['comment_count'] = int(video.get('comment_count', 0))
                         try:
                             result = collection.insert_many(videos, ordered=False)
                             new_video_ids.extend([v['video_id'] for v in videos])  # Track new videos
@@ -118,7 +121,7 @@ with DAG(
 
                         logger.info(f"Some videos already exist for {username}, checking transformation status")    
                     else:
-                        logger.info(f"No videos found for {username} (channel_id: {channel_id}) in 2024.")
+                        logger.info(f"No videos found for {username} (channel_id: {channel_id}) in 2023.")
 
                 except Exception as e:
                     logger.error(f"Error processing videos for {username}: {e}")
@@ -128,16 +131,7 @@ with DAG(
             logger.info(f"Found {len(new_video_ids)} videos to process")
 
         def transform_to_graph(**context):
-            new_video_ids = context['task_instance'].xcom_pull(
-                task_ids='fetch_and_store_channel_videos',
-                key='new_video_ids'
-            )
-            if not new_video_ids:
-                logger.info("No new videos to transform")
-                return
-
-            logger.info(f"Transforming {len(new_video_ids)} new videos to graph")
-
+           
             # Choose MongoDB connection based on environment
             mongo_conn_id = "mongo_prod" if airflow_env == "production" else "mongo_default"
             mongo_hook = MongoHook(mongo_conn_id=mongo_conn_id)
@@ -155,74 +149,104 @@ with DAG(
 
             with driver.session() as session:
                 documents = collection.find({
-                    "video_id": {"$in": new_video_ids},
+                    
                     "transformed_to_neo4j": False  # Only get untransformed videos
                 })
 
                 videos_processed = 0
                 for doc in documents:
-                 try:
-                    thumbnail_ref = doc.get("thumbnails", {}).get("gridfs_id")
-                    thumbnail_gridfs_id = str(thumbnail_ref) if thumbnail_ref else None
-                    # Convert string counts to integers with default 0
-                    view_count = int(doc.get("view_count", 0))
-                    like_count = int(doc.get("like_count", 0))
-                    comment_count = int(doc.get("comment_count", 0))
-                    session.run(
-                        """
-                        MERGE(c:YouTubeChannel {channel_id: $channel_id})
-                        MERGE(v:YouTubeVideo {video_id: $video_id})
-                        SET
-                           v.video_title = $video_title,
-                           v.video_id = $video_id,
-                           v.published_at = $published_at,
-                           v.channel_id = $channel_id,
-                           v.video_description = $video_description,
-                           v.channel_title = $channel_title,
-                           v.thumbnail_gridfs_id = $thumbnail_gridfs_id,
-                           v.view_count = $view_count,
-                           v.like_count = $like_count,
-                           v.comment_count = $comment_count,
-                           v.topic_categories = $topic_categories,
-                           v.tags = $tags
-                        MERGE (c)-[:PUBLISHED_ON_YOUTUBE]->(v)
-                        """,
-                        video_title = doc.get("video_title"),
-                        video_id = doc.get("video_id"),
-                        published_at = doc.get("published_at"),
-                        channel_id = doc.get("channel_id"),
-                        video_description = doc.get("video_description", ""),
-                        channel_title = doc.get("channel_title", ""),
-                        thumbnail_gridfs_id = thumbnail_gridfs_id,
-                        view_count = view_count,
-                        like_count = like_count,
-                        comment_count = comment_count,
-                        topic_categories = doc.get("topic_categories", []),
-                        tags = doc.get("tags", [])
-                    )
+                    try:
+                            
+                        thumbnail_url = doc.get("thumbnail_url")
+                        # Convert string counts to integers with default 0
+                        view_count = int(doc.get("view_count", 0))
+                        like_count = int(doc.get("like_count", 0))
+                        comment_count = int(doc.get("comment_count", 0))
+                        
+                        # Get topic categories and process them
+                        topic_categories = doc.get("topic_categories", [])
+                        clean_topics = [t.split("/")[-1].replace("_", " ") for t in topic_categories]
+                        
+                        session.run(
+                            """
+                            MERGE(c:YouTubeChannel {channel_id: $channel_id})
+                            MERGE(v:YouTubeVideo {video_id: $video_id})
+                            SET
+                               v.video_title = $video_title,
+                               v.video_id = $video_id,
+                               v.published_at = $published_at,
+                               v.channel_id = $channel_id,
+                               v.video_description = $video_description,
+                               v.channel_title = $channel_title,
+                               v.thumbnail_url = $thumbnail_url,
+                               v.view_count = $view_count,
+                               v.like_count = $like_count,
+                               v.comment_count = $comment_count,
+                               v.topic_categories = $clean_topics,
+                               v.username = $username,
+                               v.tags = $tags,
+                               v.defaultAudioLanguage = $defaultAudioLanguage,
+                               v.defaultLanguage = $defaultLanguage
+                            MERGE (c)-[r:HAS_VIDEO]->(v)
+                            SET r.platform = "YouTube"
+                            """,
+                            video_title = doc.get("video_title"),
+                            video_id = doc.get("video_id"),
+                            published_at = doc.get("published_at"),
+                            channel_id = doc.get("channel_id"),
+                            video_description = doc.get("video_description", ""),
+                            channel_title = doc.get("channel_title", ""),
+                            thumbnail_url = thumbnail_url,
+                            view_count = view_count,
+                            like_count = like_count,
+                            comment_count = comment_count,
+                            clean_topics = clean_topics,
+                            username = doc.get("username", ""),
+                            tags = doc.get("tags", []),
+                            defaultAudioLanguage = doc.get("defaultAudioLanguage"),
+                            defaultLanguage = doc.get("defaultLanguage")
+                        )
 
-                    tags = doc.get("tags", [])
-                    if tags:
-                      for tag in tags:
-                        session.run("""
-                            MERGE (t:Tag {name: $tag_name})
-                            WITH t
-                            MATCH (v:YouTubeVideo {video_id: $video_id})
-                            MERGE (v)-[:HAS_TAG]->(t)
-                        """, {
-                            'video_id': doc['video_id'],
-                            'tag_name': tag
-                        }) 
-                       # Mark as transformed in MongoDB
-                    collection.update_one(
-                       {"video_id": doc["video_id"]},
-                       {"$set": {"transformed_to_neo4j": True}}
-                    ) 
-                    videos_processed += 1
-                    logger.info(f"Transformed video {doc['video_id']} to Neo4j")
-                 except Exception as e:
-                       logger.error(f"Error transforming video {doc.get('video_id')}: {e}")
-                       continue
+                        # Process tags
+                        tags = doc.get("tags", [])
+                        if tags:
+                            for tag in tags:
+                                session.run("""
+                                    MERGE (t:YoutubeVideoTag {name: $tag_name})
+                                    WITH t
+                                    MATCH (v:YouTubeVideo {video_id: $video_id})
+                                    MERGE (v)-[r:HAS_TAG]->(t)
+                                    SET r.platform = "YouTube"
+                                """, {
+                                    'video_id': doc['video_id'],
+                                    'tag_name': tag
+                                }) 
+
+                        # Process topic categories
+                        if topic_categories:
+                            for topic in topic_categories:
+                                topic_name = topic.split("/")[-1].replace("_", " ")
+                                session.run("""
+                                    MERGE (t:YoutubeVideoTopic {name: $topic_name})
+                                    WITH t
+                                    MATCH (v:YouTubeVideo {video_id: $video_id})
+                                    MERGE (v)-[:HAS_TOPIC]->(t)
+                                """, {
+                                    'video_id': doc['video_id'],
+                                    'topic_name': topic_name
+                                })
+                        
+                        # Mark as transformed in MongoDB (only if all Neo4j operations succeed)
+                        collection.update_one(
+                            {"video_id": doc["video_id"]},
+                            {"$set": {"transformed_to_neo4j": True}}
+                        ) 
+                        videos_processed += 1
+                        logger.info(f"Transformed video {doc['video_id']} to Neo4j")
+                        
+                    except Exception as e:
+                        logger.error(f"Error transforming video {doc.get('video_id')}: {e}")
+                        continue
 
             logger.info(f"Successfully transformed {videos_processed} videos to Neo4j") 
          

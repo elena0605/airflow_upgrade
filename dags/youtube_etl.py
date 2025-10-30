@@ -25,24 +25,24 @@ if not logger.hasHandlers():  # Avoid duplicate handlers
 # YOUTUBE_API_KEY = Variable.get("YOUTUBE_API_KEY")
 # MONGO_URI = Variable.get("MONGO_URI")
 
-def save_thumbnail(image_url, video_id, channel_title):
-    mongo_uri = Variable.get("MONGO_URI")
-    client = MongoClient(mongo_uri)
-    db = client["airflow_db"]
-    fs = gridfs.GridFS(db)
-    try:
-        response = requests.get(image_url)
-        response.raise_for_status()
-        filename = f"{video_id}_{channel_title.replace(' ', '_')}_{image_url.split('/')[-1]}"
-        return fs.put(response.content, filename=filename, video_id = video_id, channel_title = channel_title)
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to download image: {image_url}, Error: {e}")
-        return None
+# def save_thumbnail(image_url, video_id, channel_title):
+#     mongo_uri = Variable.get("MONGO_URI")
+#     client = MongoClient(mongo_uri)
+#     db = client["rbl"]
+#     fs = gridfs.GridFS(db)
+#     try:
+#         response = requests.get(image_url)
+#         response.raise_for_status()
+#         filename = f"{video_id}_{channel_title.replace(' ', '_')}_{image_url.split('/')[-1]}"
+#         return fs.put(response.content, filename=filename, video_id = video_id, channel_title = channel_title)
+#     except requests.exceptions.RequestException as e:
+#         logger.error(f"Failed to download image: {image_url}, Error: {e}")
+#         return None
 
 def get_channels_statistics(channel_id):
     youtube_api_key = Variable.get("YOUTUBE_API_KEY")
     logger.debug(f"Fetching statistics for channel ID: {channel_id}")
-    url = f'https://www.googleapis.com/youtube/v3/channels?part=statistics,brandingSettings,topicDetails&id={channel_id}&key={youtube_api_key}'
+    url = f'https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet,brandingSettings,topicDetails&id={channel_id}&key={youtube_api_key}'
 
     try:
         response = requests.get(url)
@@ -51,19 +51,25 @@ def get_channels_statistics(channel_id):
         logger.debug(f"Received data for channel ID: {channel_id} - {data}")
 
     except requests.exceptions.HTTPError as http_err:
-        raise Exception(f"HTTP error occurred: {http_err}") from http_err
-        
+        logger.warning(f"HTTP error occurred: {http_err}")
+        return None 
     except requests.exceptions.RequestException as req_err:
-          raise Exception(f"Request failed for channel ID: {channel_id} - {req_err}") from req_err
-             
+          logger.warning(f"Request failed for channel ID: {channel_id} - {req_err}")
+          return None
+    except Exception as e:
+          logger.warning(f"Unexpected error occurred: {e}")
+          return None
+              
     if 'items' in data and len(data['items']) > 0:
         item = data['items'][0]
         stats = item.get('statistics', {})
+        snippet = item.get('snippet', {})
         branding = item.get('brandingSettings', {}).get('channel', {})
         title = branding.get('title', 'Unknown')
         description = branding.get('description', 'Unknown')
         keywords = branding.get('keywords', [])
         country = branding.get('country', 'Unknown')
+        images = item.get('brandingSettings', {}).get('image', {})
         topic_categories = item.get('topicDetails', {}).get('topicCategories', [])
         logger.info(f"Statistics fetched successfully for channel ID: {channel_id}")
         return {
@@ -76,10 +82,13 @@ def get_channels_statistics(channel_id):
              'description': description,
              'keywords': keywords,
              'country': country,
-             'topic_categories': topic_categories
+             'topic_categories': topic_categories,
+             'banner_external_url': images.get('bannerExternalUrl'),
+             'thumbnail_url': snippet.get('thumbnails', {}).get('high', {}).get('url')
         }
     else:
-        raise Exception(f"No items found for channel ID: {channel_id}")
+        logger.warning(f"No items found for channel ID: {channel_id}")
+        return None
         
 def get_video_details(video_ids):   
     """
@@ -138,7 +147,7 @@ def get_videos_by_date(channel_id, start_date, end_date):
             thumbnails = item['snippet']['thumbnails']['high']['url']
              
             # Save thumbnail and get GridFS ID
-            thumbnail_id = save_thumbnail(thumbnails, video_id, channelTitle)
+            # thumbnail_id = save_thumbnail(thumbnails, video_id, channelTitle)
 
             videos.append({
                           'video_title': video_title, 
@@ -147,7 +156,7 @@ def get_videos_by_date(channel_id, start_date, end_date):
                           'channel_id': channel_id, 
                           'video_description': video_description, 
                           'channel_title' : channelTitle,
-                          'thumbnails': {'gridfs_id': thumbnail_id}       
+                          'thumbnail_url':  thumbnails     
                            })
 
         next_page_token = data.get('nextPageToken')
@@ -180,7 +189,9 @@ def get_videos_by_date(channel_id, start_date, end_date):
                     'like_count': details['statistics'].get('likeCount', '0'),
                     'comment_count': details['statistics'].get('commentCount', '0'),
                     'topic_categories': details['topicDetails'].get('topicCategories', []),
-                    'tags': details['snippet'].get('tags', [])  
+                    'tags': details['snippet'].get('tags', []),
+                    'defaultAudioLanguage': details['snippet'].get('defaultAudioLanguage', None),
+                    'defaultLanguage': details['snippet'].get('defaultLanguage', None),
                     
                 })
     logger.info(f"Total videos fetched: {len(videos)}")
@@ -195,11 +206,13 @@ def get_top_level_comments(video_id):
         'part': 'snippet',
         'videoId': video_id,
         'maxResults': 100, 
+        'textFormat': 'plainText',
         'key': youtube_api_key
     }
 
     comments = []
     next_page_token = None
+    max_comments = 1000 
 
     logger.debug(f"Starting to fetch top-level comments for video_id: {video_id}")
 
@@ -214,24 +227,30 @@ def get_top_level_comments(video_id):
             logger.debug(f"Fetched {len(data.get('items', []))} comments for video_id: {video_id}")
 
             for item in data.get('items', []):
+               
                 top_comment = {
                     'comment_id': item['snippet']['topLevelComment']['id'],
                     'channel_id': item['snippet']['channelId'],
                     'video_id': item['snippet']['videoId'],
+                    'parent_id': None,
                     'canReply': item['snippet']['canReply'],
                     'totalReplyCount': item['snippet']['totalReplyCount'],
-                    'text': item['snippet']['topLevelComment']['snippet']['textDisplay'],
+                    'textDisplay': item['snippet']['topLevelComment']['snippet']['textDisplay'],
+                    'textOriginal': item['snippet']['topLevelComment']['snippet']['textOriginal'],
                     'authorDisplayName': item['snippet']['topLevelComment']['snippet']['authorDisplayName'],
                     'authorProfileImageUrl': item['snippet']['topLevelComment']['snippet']['authorProfileImageUrl'],
                     'authorChannelUrl': item['snippet']['topLevelComment']['snippet']['authorChannelUrl'],
+                    'authorChannelId': item['snippet']['topLevelComment']['snippet']['authorChannelId']['value'],
                     'canRate': item['snippet']['topLevelComment']['snippet']['canRate'],
-                    'viewerRating': item['snippet']['topLevelComment']['snippet']['viewerRating'],
+                    'viewerRating': item['snippet']['topLevelComment']['snippet']['viewerRating'],     
                     'likeCount': item['snippet']['topLevelComment']['snippet']['likeCount'],
                     'publishedAt': item['snippet']['topLevelComment']['snippet']['publishedAt'],
                     'updatedAt': item['snippet']['topLevelComment']['snippet']['updatedAt']         
                 }
                 comments.append(top_comment)
-
+                if len(comments) >= max_comments:
+                    logger.info(f"Reached maximum {max_comments} comments limit for video_id: {video_id}")
+                    return comments
             next_page_token = data.get('nextPageToken')
             if not next_page_token:
                 logger.info(f"Completed fetching comments for video_id: {video_id}")
@@ -247,19 +266,20 @@ def get_top_level_comments(video_id):
     logger.debug(f"Total comments fetched for video_id: {video_id}: {len(comments)}")     
     return comments
 
-def get_replies(parent_id):
+def get_replies(parent_id, video_id):
     youtube_api_key = Variable.get("YOUTUBE_API_KEY")
     url = "https://www.googleapis.com/youtube/v3/comments"
     params = {
         'part': 'snippet',
         'parentId': parent_id,
         'maxResults': 100,
-        'key': youtube_api_key
+        'key': youtube_api_key,
+        'textFormat': 'plainText'
     }
 
     replies = []
     next_page_token = None
-    
+    max_replies = 1000 
 
     while True:
         if next_page_token:
@@ -272,22 +292,29 @@ def get_replies(parent_id):
 
             for item in data.get('items', []):
                 reply = {
-                    'reply_id': item['id'],
+                    'comment_id': item['id'],
                     'authorDisplayName': item['snippet']['authorDisplayName'],
                     'authorProfileImageUrl': item['snippet']['authorProfileImageUrl'],
                     'authorChannelUrl': item['snippet']['authorChannelUrl'],
+                    'authorChannelId': item['snippet']['authorChannelId']['value'],
+                    'canReply': None,
+                    'totalReplyCount': None,
                     'channel_id': item['snippet']['channelId'],
-                    'text': item['snippet']['textDisplay'],
+                    'video_id': video_id,
+                    'textDisplay': item['snippet']['textDisplay'],
+                    'textOriginal': item['snippet']['textOriginal'],
                     'parent_id': item['snippet']['parentId'],
                     'canRate': item['snippet']['canRate'],
                     'viewerRating': item['snippet']['viewerRating'],
                     'likeCount': item['snippet']['likeCount'],
                     'publishedAt': item['snippet']['publishedAt'],
                     'updatedAt': item['snippet']['updatedAt'],
-                    'fetched_time': datetime.now()
+                   
                 }                
                 replies.append(reply)
-            
+                if len(replies) >= max_replies:
+                    logger.info(f"Reached maximum {max_replies} replies limit for comment_id: {parent_id}")
+                    return replies
                 # nested_replies = get_replies(reply['reply_id'])
                 # replies.extend(nested_replies)
             

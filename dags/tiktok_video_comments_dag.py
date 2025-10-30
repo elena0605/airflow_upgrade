@@ -160,7 +160,7 @@ with DAG(
         neo4j_hook = Neo4jHook(conn_id=neo4j_conn_id)
         driver = neo4j_hook.get_conn()
 
-        batch_size = 500
+        batch_size = 50
         comments_processed = 0
 
         # --- Explicit MongoDB session ---
@@ -238,7 +238,8 @@ with DAG(
                 comment.video_id = c.video_id
 
             MERGE (v:TikTokVideo {video_id: c.video_id})
-            MERGE (comment)-[:POSTED_ON_TIKTOK_VIDEO]->(v)
+            MERGE (v)-[r:HAS_COMMENT]->(comment)
+            SET r.platform = "TikTok"
             """, comments=neo4j_batch)
 
         # Update MongoDB as processed in bulk
@@ -262,3 +263,4 @@ with DAG(
     # Set task dependencies
     fetch_and_store_comments_task >> transform_comments_to_graph_task 
     #transform_comments_to_graph_task 
+    

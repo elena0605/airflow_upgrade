@@ -1,10 +1,13 @@
 import sys
+import os
 from neo4j import GraphDatabase
+from dotenv import load_dotenv
 
 # Neo4j connection settings
-NEO4J_URI = "bolt+ssc://rbl-neo4j.ecda.ai:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "neo4jneo4j"
+load_dotenv()
+NEO4J_URI = os.getenv("NEO4J_URI")
+NEO4J_USER = os.getenv("NEO4J_USER")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 def run_queries_from_file(file_path):
     # Read the Cypher file

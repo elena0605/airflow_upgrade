@@ -142,13 +142,22 @@ def tiktok_get_user_info(username: str, output_dir:str, **context):
         # request
         response = requests.request("POST", url, headers = headers, params = params ,json = body,  timeout=10)
         logger.info("Call is done...")
+        # logger.info(f"TikTok API raw response: {response.text}")
 
-        # If the request was successful, process the response
-        response.raise_for_status()  # This will raise an exception for 4xx/5xx errors
+        # Parse the response as JSON
+        resp_json = response.json()
+ 
+        # Handle specific error case for invalid username
+        if response.status_code == 400 and resp_json.get("error", {}).get("code") == "invalid_params":
+            logger.info(f"Username {username} cannot be retrieved — probably deleted, private, or invalid.") 
+            return None
+
+        # Check for other HTTP errors
+        response.raise_for_status()  # This will raise an exception for other 4xx/5xx errors
 
         # Access the response data
-        resp = response.json()
-        logger.info(f"Now in function tiktok_get_user_info, getting resp {resp}")
+        
+        logger.info(f"Now in function tiktok_get_user_info, getting resp {resp_json}")
 
 
         # Note: XCom data is now handled in the calling DAG task
@@ -157,7 +166,7 @@ def tiktok_get_user_info(username: str, output_dir:str, **context):
         else:
             logger.debug(f"Context not available for username: {username}")
 
-        df = pd.DataFrame([resp["data"]])  # Wrap the dictionary in a list to create a single-row DataFrame
+        df = pd.DataFrame([resp_json["data"]])  # Wrap the dictionary in a list to create a single-row DataFrame
 
         return df
 

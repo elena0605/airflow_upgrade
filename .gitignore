@@ -26,3 +26,12 @@ mongodb_scripts/output/
 
 airflow_backup.sql
 *.sql
+
+# Neo4j scripts
+neo4j_scripts/.env
+neo4j_scripts/venv/
+neo4j_scripts/__pycache__/
+neo4j_scripts/*.pyc
+neo4j_scripts/*.log
+neo4j_scripts/*.tmp
+neo4j_scripts/.DS_Store

@@ -1,0 +1,14 @@
+"area_name","nprz","population_density","percentage_female","young_age_perc","percentage_married","nl_origin_perc","percentage_non_eu_migrants","household_with_children_perc","housing_density","housing_property_value_avg","housing_owner_occupied_perc","housing_rental_housing_perc","avg_educational_level","labor_net_participation_rate","income_standardized_household_income_avg","income_household_wealth_median","social_benefits_percentage","care_youth_recipients_in_kind_perc","average_distance_general_practitioner","average_distance_large_supermarket","average_distance_childcare","average_distance_school","percentage_water","degree_of_urbanization"
+"Rotterdam Centrum","Rest Rotterdam",9965,47.79,26.35,19.91,38.76,44.7,13.78,53.3,407,27,73,2.34,71,38.5,9.7,7.65,4.8,0.6,0.4,0.5,0.7,15.37,1
+"Delfshaven","Rest Rotterdam",14935,49.36,30.28,23.28,29.69,56.46,27.59,69.83,300,26,73,2.04,66,31,3.3,12.03,6.1,0.5,0.5,0.3,0.4,13.59,1
+"Overschie","Rest Rotterdam",1202,50.06,30.77,32.72,58.52,33.05,38.86,5.43,364,50,50,2.08,71,38,101.8,7.9,8,1.1,1,0.5,0.9,5.2,2
+"Hillegersberg-Schiebroek","Rest Rotterdam",3844,51.92,29.83,32.27,65.91,24.47,35.05,18,472,54,46,2.26,71,45.8,171,6.69,8.6,0.7,0.7,0.4,0.6,12.29,2
+"Noord","Rest Rotterdam",10364,50.19,25.98,20.47,45.72,41.21,20.88,54.16,344,33,67,2.25,72,34.2,9.9,9.67,6.5,0.5,0.5,0.4,0.5,4.49,1
+"Kralingen-Crooswijk","Rest Rotterdam",5290,52.33,34.08,21.87,42.75,42.43,20.15,27.35,370,24,75,2.17,62,35.4,5.7,9.67,5.1,0.6,0.5,0.4,0.6,18.4,1
+"Feijenoord","NPRZ",11866,50.52,30.38,27,29.55,58.69,31.85,55.56,289,21,79,1.87,62,31.7,2.8,13.26,7.3,0.6,0.6,0.4,0.5,22.46,1
+"IJsselmonde","NPRZ",5253,51.03,29.51,29.71,41.99,47.72,34.56,24.54,247,37,63,1.81,65,31.7,12.7,11.51,8.8,0.7,0.8,0.5,0.6,9.93,1
+"Prins Alexander","Rest Rotterdam",5552,52.1,26.83,34.11,57.45,33.78,31.97,26.7,341,44,56,2.06,67,36.4,43.1,8.67,9.1,0.9,0.7,0.5,0.7,6.56,1
+"Charlois","NPRZ",6333,48.47,30.26,23.81,29.55,51.55,29.46,30.54,217,27,73,1.82,64,28.8,3.2,12.21,8.1,0.7,0.5,0.4,0.6,5.97,1
+"Waalhaven-Eemhaven","NPRZ",15,60.71,39.29,14.29,10.71,10.71,29.41,0.03,324.83,19,81,2.03,67.83,35.06,11.3,0,7.47,2.8,2,2.2,2.8,40.04,4
+"Hoek van Holland","Rest Rotterdam",744,50.95,24.81,39.96,82.15,9.38,32.96,4.16,NA,43,57,1.96,72,38.6,94.4,6.82,8.9,0.9,0.7,0.6,0.7,23.42,3
+"Rozenburg","Rest Rotterdam",2756,50.72,26.89,39.81,73.07,16.49,35.37,12.86,265,55,45,1.84,69,36.6,89.2,7.3,9.7,1.2,0.6,0.6,0.8,30.46,3

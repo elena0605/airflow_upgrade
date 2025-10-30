@@ -177,7 +177,8 @@ with DAG(
                        v.video_tag_type = $video_tag_type,
                        v.search_id = $search_id,
                        v.username = $username
-                    MERGE (u)-[:PUBLISHED_ON_TIKTOK]->(v)  
+                    MERGE (u)-[r:HAS_VIDEO]->(v)
+                    SET r.platform = "TikTok"
                     """,
                     username=username,
                     video_id=video_id,
@@ -207,12 +208,13 @@ with DAG(
                     hashtag_description = hashtag.get("hashtag_description")
                     if hashtag_id and hashtag_name:
                         session.run("""
-                            MERGE (h:Hashtag {id: $hashtag_id})
+                            MERGE (h:TikTokHashtag {id: $hashtag_id})
                             SET h.name = $hashtag_name,
                                 h.description = $hashtag_description
                             WITH h
                             MATCH (v:TikTokVideo {video_id: $video_id})
-                            MERGE (v)-[:HAS_HASHTAG]->(h)
+                            MERGE (v)-[r:HAS_TAG]->(h)
+                            SET r.platform = "TikTok"
                         """, {
                             "video_id": video_id,
                             "hashtag_id": hashtag_id,
@@ -224,7 +226,7 @@ with DAG(
                     sticker_name = sticker.get("sticker_name")
                     if sticker_id and sticker_name:
                         session.run("""
-                            MERGE (s:Sticker {id: $sticker_id, name: $sticker_name})
+                            MERGE (s:TikTokSticker {id: $sticker_id, name: $sticker_name})
                             WITH s
                             MATCH (v:TikTokVideo {video_id: $video_id})
                             MERGE (v)-[:HAS_STICKER]->(s)
