@@ -25,6 +25,7 @@ library(viridis)
 library(tidyr)
 library(scales)
 library(jsonlite)
+library(DT)
 
 # Set data path
 data_path <- params$data_path
@@ -39,6 +40,98 @@ if (!dir.exists(data_path)) {
 }
 
 print(paste("Loading data from:", data_path))
+```
+
+## Intro: YouTube API calls and entity mapping
+
+- YouTubeChannel (channel_basic_statistics.csv)
+  - channels.list: `https://www.googleapis.com/youtube/v3/channels?part=statistics,brandingSettings,topicDetails&id={channel_id}&key=API_KEY`
+  - Implemented in `get_channels_statistics()`
+
+- YouTubeVideo, YouTubeVideoTag, YouTubeVideoTopic (youtube_videos_flat.csv)
+  - search.list (date-bounded pagination): `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId={channel_id}&type=video&order=date&maxResults=50&publishedAfter={start}&publishedBefore={end}&key=API_KEY`
+  - videos.list (details in batches of 50): `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet,topicDetails&id={comma_separated_ids}&key=API_KEY`
+  - Implemented in `get_videos_by_date()` and `get_video_details()`
+
+- YouTubeVideoComment (youtube_video_comments_flat.csv)
+  - commentThreads.list (top-level comments): `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId={video_id}&maxResults=100&key=API_KEY`
+  - Implemented in `get_top_level_comments()`
+
+- YouTubeVideoReply (youtube_video_replies_flat.csv)
+  - comments.list (replies): `https://www.googleapis.com/youtube/v3/comments?part=snippet&parentId={comment_id}&maxResults=100&key=API_KEY`
+  - Implemented in `get_replies_for_comment()`
+
+- YouTubeVideoCaption (youtube_video_captions_flat.csv)
+  - captions.list: `https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId={video_id}`
+  - captions.download: `https://www.googleapis.com/youtube/v3/captions/{caption_id}` (requires OAuth)
+  - Implemented in `fetch_youtube_captions()`
+
+
+
+## Data Completeness
+
+```{r data-completeness, echo=FALSE}
+# Helpers
+read_csv_if_exists <- function(path) {
+  if (file.exists(path)) read.csv(path, stringsAsFactors = FALSE) else NULL
+}
+
+is_missing_val <- function(x) {
+  if (is.numeric(x)) return(is.na(x))
+  tx <- trimws(as.character(x))
+  empty_json_array <- grepl("^\\[\\s*\\]$", tx)
+  empty_json_object <- grepl("^\\{\\s*\\}$", tx)
+  is.na(tx) | tx == "" | tolower(tx) %in% c("na", "null", "none") | empty_json_array | empty_json_object
+}
+
+compute_property_table <- function(entity, df) {
+  total <- nrow(df)
+  data.frame(
+    Entity = entity,
+    Property = names(df),
+    NonMissing = sapply(df, function(col) sum(!is_missing_val(col))),
+    Total = total,
+    CompletenessPct = round(100 * sapply(df, function(col) mean(!is_missing_val(col))), 1),
+    stringsAsFactors = FALSE
+  )
+}
+
+# Entities and their CSVs (use available CSVs only)
+entities <- list(
+  list(title = "YouTubeChannel", csv = "channel_basic_statistics.csv"),
+  list(title = "YouTubeVideo", csv = "youtube_videos_flat.csv"),
+  list(title = "YouTubeVideoComment", csv = "youtube_video_comments_flat.csv"),
+  list(title = "YouTubeVideoReply", csv = "youtube_video_replies_flat.csv"),
+  list(title = "YouTubeVideoCaption", csv = "youtube_video_captions_flat.csv"),
+  list(title = "Tag", csv = "youtube_video_tags_flat.csv"),
+  list(title = "Topic", csv = "youtube_video_topics_flat.csv")
+)
+# Add captions if present
+if (file.exists(file.path(data_path, "youtube_video_captions.csv"))) {
+  entities <- c(entities, list(list(title = "YouTubeVideoCaption", csv = "youtube_video_captions.csv")))
+}
+
+all_props <- NULL
+for (e in entities) {
+  path <- file.path(data_path, e$csv)
+  df <- read_csv_if_exists(path)
+  if (!is.null(df) && nrow(df) > 0) {
+    all_props <- rbind(all_props, compute_property_table(e$title, df))
+  }
+}
+
+cat("### Per-Property Completeness (%)\\n\\n")
+if (is.null(all_props)) {
+  cat("No data available for completeness calculations.\\n")
+} else {
+  all_props <- all_props[order(all_props$Entity, -all_props$CompletenessPct, all_props$Property), ]
+  DT::datatable(
+    all_props,
+    options = list(scrollX = TRUE, pageLength = 25, order = list(list(0, 'asc'), list(4, 'desc'))),
+    rownames = FALSE,
+    caption = "Per-property completeness across YouTube entities"
+  )
+}
 ```
 
 ## Executive Summary
@@ -84,7 +177,33 @@ if (file.exists(file.path(data_path, "channel_by_country.csv"))) {
 if (file.exists(file.path(data_path, "channel_basic_statistics.csv"))) {
   channel_data <- read.csv(file.path(data_path, "channel_basic_statistics.csv"))
   
-  # Calculate summary statistics
+  # Ensure numeric columns are properly formatted
+  # Handle both old format (Videos) and new format (TotalVideos, CollectedVideos)
+  if ("TotalVideos" %in% names(channel_data) && "CollectedVideos" %in% names(channel_data)) {
+    # New format with TotalVideos and CollectedVideos
+    channel_data <- channel_data %>%
+      mutate(
+        Views = as.numeric(Views),
+        Subscribers = as.numeric(Subscribers),
+        TotalVideos = as.numeric(TotalVideos),
+        CollectedVideos = as.numeric(CollectedVideos),
+        Views.Per.Video = as.numeric(Views.Per.Video),
+        Views.Per.Subscriber = as.numeric(Views.Per.Subscriber)
+      )
+  } else if ("Videos" %in% names(channel_data)) {
+    # Old format - convert Videos to TotalVideos and CollectedVideos
+    channel_data <- channel_data %>%
+      mutate(
+        Views = as.numeric(Views),
+        Subscribers = as.numeric(Subscribers),
+        TotalVideos = as.numeric(Videos),
+        CollectedVideos = as.numeric(Videos),  # Use same value if CollectedVideos not available
+        Views.Per.Video = as.numeric(Views.Per.Video),
+        Views.Per.Subscriber = as.numeric(Views.Per.Subscriber)
+      )
+  }
+  
+  # Calculate summary statistics with proper formatting
   channel_summary <- channel_data %>%
     summarise(
       `Total Channels` = n(),
@@ -94,19 +213,55 @@ if (file.exists(file.path(data_path, "channel_basic_statistics.csv"))) {
       `Mean Subscribers` = round(mean(Subscribers, na.rm = TRUE), 0),
       `Median Subscribers` = round(median(Subscribers, na.rm = TRUE), 0),
       `Max Subscribers` = max(Subscribers, na.rm = TRUE),
-      `Mean Videos` = round(mean(Videos, na.rm = TRUE), 1),
-      `Median Videos` = round(median(Videos, na.rm = TRUE), 1)
+      `Mean Total Videos` = round(mean(TotalVideos, na.rm = TRUE), 1),
+      `Mean Collected Videos` = round(mean(CollectedVideos, na.rm = TRUE), 1),
+      `Median Total Videos` = round(median(TotalVideos, na.rm = TRUE), 1),
+      `Median Collected Videos` = round(median(CollectedVideos, na.rm = TRUE), 1)
     )
   
-  kable(channel_summary, caption = "Channel Statistics Summary")
+  # Format summary numbers with commas (no scientific notation)
+  channel_summary_formatted <- channel_summary %>%
+    mutate(
+      `Mean Views` = format(`Mean Views`, big.mark = ",", scientific = FALSE),
+      `Median Views` = format(`Median Views`, big.mark = ",", scientific = FALSE),
+      `Max Views` = format(`Max Views`, big.mark = ",", scientific = FALSE),
+      `Mean Subscribers` = format(`Mean Subscribers`, big.mark = ",", scientific = FALSE),
+      `Median Subscribers` = format(`Median Subscribers`, big.mark = ",", scientific = FALSE),
+      `Max Subscribers` = format(`Max Subscribers`, big.mark = ",", scientific = FALSE)
+    )
   
-  # Top 10 channels by subscribers
-  top_channels <- channel_data %>%
+  kable(channel_summary_formatted, caption = "Channel Statistics Summary")
+  
+  # Prepare all channels data for scrollable table
+  # Sort first, then format for display
+  all_channels_data <- channel_data %>%
     arrange(desc(Subscribers)) %>%
-    head(10) %>%
-    select(Channel, Views, Subscribers, Videos, Views.Per.Video, Views.Per.Subscriber)
+    mutate(
+      Views = format(Views, big.mark = ",", scientific = FALSE),
+      Subscribers = format(Subscribers, big.mark = ",", scientific = FALSE),
+      TotalVideos = format(TotalVideos, big.mark = ",", scientific = FALSE),
+      CollectedVideos = format(CollectedVideos, big.mark = ",", scientific = FALSE),
+      Views.Per.Video = format(round(Views.Per.Video, 2), big.mark = ",", scientific = FALSE),
+      Views.Per.Subscriber = format(round(Views.Per.Subscriber, 2), big.mark = ",", scientific = FALSE)
+    ) %>%
+    select(Channel, Views, Subscribers, TotalVideos, CollectedVideos, Views.Per.Video, Views.Per.Subscriber)
   
-  kable(top_channels, caption = "Top 10 Channels by Subscriber Count")
+  # Create scrollable table with all channels
+  cat("\n### All Channels Analyzed\n\n")
+  DT::datatable(
+    all_channels_data,
+    caption = "Channels by Subscriber Count",
+    options = list(
+      scrollX = TRUE,
+      scrollY = "500px",
+      pageLength = 50,
+      searching = TRUE,
+      order = list(list(2, 'desc'))  # Sort by Subscribers descending (column index 2)
+    ),
+    rownames = FALSE
+  )
+  
+  
 } else {
   cat("Channel statistics data not available\n")
 }
@@ -118,15 +273,31 @@ if (file.exists(file.path(data_path, "channel_basic_statistics.csv"))) {
 if (file.exists(file.path(data_path, "channel_basic_statistics.csv"))) {
   channel_data <- read.csv(file.path(data_path, "channel_basic_statistics.csv"))
   
+  # Handle both old format (Videos) and new format (TotalVideos, CollectedVideos)
+  if ("CollectedVideos" %in% names(channel_data)) {
+    video_col <- "CollectedVideos"
+  } else if ("Videos" %in% names(channel_data)) {
+    video_col <- "Videos"
+  } else {
+    video_col <- "TotalVideos"
+  }
+  
+  channel_data <- channel_data %>%
+    mutate(
+      Views = as.numeric(Views),
+      Subscribers = as.numeric(Subscribers),
+      VideoCount = as.numeric(!!sym(video_col))
+    )
+  
   # Create scatter plot of subscribers vs views
-  performance_plot <- ggplot(channel_data, aes(x = Subscribers, y = Views, size = Videos)) +
+  performance_plot <- ggplot(channel_data, aes(x = Subscribers, y = Views, size = VideoCount)) +
     geom_point(alpha = 0.6, color = "steelblue") +
     scale_x_log10(labels = comma_format()) +
     scale_y_log10(labels = comma_format()) +
-    scale_size_continuous(name = "Video Count", range = c(1, 8)) +
+    scale_size_continuous(name = "Collected Videos", range = c(1, 8)) +
     labs(
       title = "Channel Performance: Subscribers vs Views",
-      subtitle = "Bubble size represents video count",
+      subtitle = "Bubble size represents collected video count (2023)",
       x = "Subscribers (log scale)",
       y = "Total Views (log scale)"
     ) +
@@ -142,7 +313,190 @@ if (file.exists(file.path(data_path, "channel_basic_statistics.csv"))) {
 }
 ```
 
-## 2. Geographic Distribution Analysis
+### Collected Videos Distribution
+
+```{r collected-videos-histogram, echo=FALSE}
+if (file.exists(file.path(data_path, "channel_basic_statistics.csv"))) {
+  channel_data <- read.csv(file.path(data_path, "channel_basic_statistics.csv"))
+  
+  # Handle both old format (Videos) and new format (TotalVideos, CollectedVideos)
+  if ("CollectedVideos" %in% names(channel_data)) {
+    video_col <- "CollectedVideos"
+  } else if ("Videos" %in% names(channel_data)) {
+    video_col <- "Videos"
+  } else {
+    video_col <- "TotalVideos"
+  }
+  
+  channel_data <- channel_data %>%
+    mutate(
+      VideoCount = as.numeric(!!sym(video_col))
+    )
+
+  # Full dataset (includes zeros) and filtered dataset (>0) for histogram only
+  channel_data_full <- channel_data
+  channel_data <- channel_data_full %>%
+    filter(!is.na(VideoCount) & VideoCount > 0)
+  
+  if (nrow(channel_data) > 0) {
+    # Original simple histogram: 30 bins, no labels, default ticks
+    histogram_plot <- ggplot(channel_data, aes(x = VideoCount)) +
+      geom_histogram(bins = 30, fill = "steelblue", color = "white", alpha = 0.7) +
+      scale_x_continuous(labels = comma_format()) +
+      scale_y_continuous(labels = comma_format()) +
+      labs(
+        title = "Distribution of Collected Videos per Channel",
+        subtitle = "Histogram showing the number of videos collected from each channel (2023 data)",
+        x = "Number of Collected Videos",
+        y = "Number of Channels",
+        caption = paste("Total channels:", nrow(channel_data_full), "| Mean:", round(mean(channel_data_full$VideoCount, na.rm = TRUE), 1), "videos")
+      ) +
+      theme_minimal(base_size = 12) +
+      theme(
+        plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+        plot.subtitle = element_text(size = 12, hjust = 0.5),
+        plot.caption = element_text(size = 10, hjust = 0.5, margin = margin(t = 10))
+      )
+    
+    print(histogram_plot)
+    
+    # Summary statistics
+    cat("\n**Summary Statistics for Collected Videos:**\n")
+    cat("- Mean:", round(mean(channel_data_full$VideoCount, na.rm = TRUE), 1), "videos\n")
+    cat("- Median:", round(median(channel_data_full$VideoCount, na.rm = TRUE), 1), "videos\n")
+    cat("- Max:", max(channel_data_full$VideoCount, na.rm = TRUE), "videos\n")
+    cat("- Min:", min(channel_data_full$VideoCount, na.rm = TRUE), "videos\n")
+    
+    # Use full dataset (including zeros) for the listings below
+    # (channel_data_full already available)
+    
+    # Channels with 0 videos
+    channels_zero <- channel_data_full %>%
+      filter(VideoCount == 0) %>%
+      select(Channel, matches("TotalVideos|CollectedVideos|Videos")) %>%
+      arrange(Channel)
+    
+    # Channels with 1-10 videos
+    channels_1_10 <- channel_data_full %>%
+      filter(VideoCount >= 1 & VideoCount <= 10) %>%
+      arrange(VideoCount, Channel)
+    
+    # (Lists/tables removed as per request)
+  }
+} else {
+  cat("Channel data not available for histogram\n")
+}
+```
+
+## 2. Tag and Topic Frequencies
+
+```{r tag-topic-frequencies-after, echo=FALSE}
+read_if <- function(p) if (file.exists(p)) read.csv(p, stringsAsFactors = FALSE) else NULL
+
+# Tags
+tags_unique <- read_if(file.path(data_path, "youtube_video_tags_unique.csv"))
+if (!is.null(tags_unique)) {
+  kable(head(tags_unique, 50), caption = "Top 50 Tags by Occurrence")
+}
+
+# Topics
+topics_unique <- read_if(file.path(data_path, "youtube_video_topics_unique.csv"))
+if (!is.null(topics_unique)) {
+  kable(head(topics_unique, 50), caption = "Top 50 Topics by Occurrence")
+}
+```
+### Channel Distribution by Topic Category
+
+```{r topic-category-analysis, echo=FALSE}
+# Use per-video topics unique counts to align with Top 50 Topics
+unique_topics_path <- file.path(data_path, "youtube_video_topics_unique.csv")
+if (file.exists(unique_topics_path)) {
+  topic_unique <- read.csv(unique_topics_path, stringsAsFactors = FALSE)
+  # Human-readable category name from URL-like strings
+  topic_unique <- topic_unique %>%
+    mutate(
+      category_name = gsub(".*/", "", topic_category),
+      category_name = gsub("_", " ", category_name),
+      category_name = tools::toTitleCase(category_name)
+    )
+  
+  # Top 10 by distinct channels to represent breadth
+  top_categories <- topic_unique %>%
+    arrange(desc(distinct_channels)) %>%
+    head(10)
+  
+  category_plot <- ggplot(top_categories, aes(x = reorder(category_name, distinct_channels), y = distinct_channels, fill = category_name)) +
+    geom_col(alpha = 0.8) +
+    geom_text(aes(label = distinct_channels), hjust = -0.1, size = 3.5, fontface = "bold") +
+    scale_fill_viridis_d() +
+    coord_flip() +
+    labs(
+      title = "Top 10 Categories by Distinct Channels",
+      subtitle = "Using per-video topics (2023 data)",
+      x = "Category",
+      y = "Distinct Channels",
+      fill = "Category"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+      plot.subtitle = element_text(size = 12, hjust = 0.5),
+      legend.position = "none"
+    ) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
+  
+  print(category_plot)
+} else {
+  cat("Topic category data (unique) not available\n")
+}
+```
+
+### Category Performance Metrics
+
+```{r category-performance, echo=FALSE}
+# Join per-video topics to per-video stats to compute performance by topic
+topics_flat_path <- file.path(data_path, "youtube_video_topics_flat.csv")
+videos_flat_path <- file.path(data_path, "youtube_videos_flat.csv")
+if (file.exists(topics_flat_path) && file.exists(videos_flat_path)) {
+  topics_flat <- read.csv(topics_flat_path, stringsAsFactors = FALSE)
+  videos_flat <- read.csv(videos_flat_path, stringsAsFactors = FALSE) %>%
+    select(video_id, view_count)
+  
+  topic_videos <- topics_flat %>%
+    inner_join(videos_flat, by = "video_id") %>%
+    mutate(
+      category_name = gsub(".*/", "", topic_category),
+      category_name = gsub("_", " ", category_name),
+      category_name = tools::toTitleCase(category_name),
+      view_count = suppressWarnings(as.numeric(view_count))
+    )
+  
+  perf <- topic_videos %>%
+    group_by(category_name) %>%
+    summarise(
+      Videos = n(),
+      Distinct_Channels = n_distinct(channel_id),
+      Total_Views = round(sum(view_count, na.rm = TRUE), 0),
+      Avg_Views_Per_Video = round(mean(view_count, na.rm = TRUE), 0),
+      .groups = "drop"
+    ) %>%
+    arrange(desc(Videos)) %>%
+    head(10)
+  
+  perf <- perf %>%
+    mutate(
+      Total_Views = format(Total_Views, big.mark = ",", scientific = FALSE),
+      Avg_Views_Per_Video = format(Avg_Views_Per_Video, big.mark = ",", scientific = FALSE)
+    )
+  
+  kable(perf, caption = "Category Performance (Top 10 by Videos)")
+} else {
+  cat("Topic performance data not available\n")
+}
+```
+
+
+## 3. Geographic Distribution Analysis
 
 ### Channel Distribution by Country
 
@@ -178,7 +532,7 @@ if (file.exists(file.path(data_path, "channel_by_country.csv"))) {
   
   print(country_plot)
   
-  kable(top_countries, caption = "Top 10 Countries by Channel Count")
+  
 } else {
   cat("Country data not available\n")
 }
@@ -206,80 +560,7 @@ if (file.exists(file.path(data_path, "channel_by_country.csv"))) {
 }
 ```
 
-## 3. Content Category Analysis
 
-### Channel Distribution by Topic Category
-
-```{r topic-category-analysis, echo=FALSE}
-if (file.exists(file.path(data_path, "channel_by_topic_category.csv"))) {
-  topic_data <- read.csv(file.path(data_path, "channel_by_topic_category.csv"))
-  
-  # Clean up category names
-  topic_data <- topic_data %>%
-    mutate(
-      category_name = gsub(".*/", "", category),
-      category_name = gsub("_", " ", category_name),
-      category_name = tools::toTitleCase(category_name)
-    )
-  
-  # Top 10 categories by channel count
-  top_categories <- topic_data %>%
-    arrange(desc(channelCount)) %>%
-    head(10)
-  
-  # Create visualization
-  category_plot <- ggplot(top_categories, aes(x = reorder(category_name, channelCount), y = channelCount, fill = category_name)) +
-    geom_col(alpha = 0.8) +
-    geom_text(aes(label = channelCount), hjust = -0.1, size = 3.5, fontface = "bold") +
-    scale_fill_viridis_d() +
-    coord_flip() +
-    labs(
-      title = "Top 10 Categories by Channel Count",
-      subtitle = "Content category distribution",
-      x = "Category",
-      y = "Number of Channels",
-      fill = "Category"
-    ) +
-    theme_minimal(base_size = 12) +
-    theme(
-      plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
-      plot.subtitle = element_text(size = 12, hjust = 0.5),
-      legend.position = "none"
-    ) +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
-  
-  print(category_plot)
-  
-  kable(top_categories, caption = "Top 10 Categories by Channel Count")
-} else {
-  cat("Topic category data not available\n")
-}
-```
-
-### Category Performance Metrics
-
-```{r category-performance, echo=FALSE}
-if (file.exists(file.path(data_path, "channel_by_topic_category.csv"))) {
-  topic_data <- read.csv(file.path(data_path, "channel_by_topic_category.csv"))
-  
-  # Calculate performance metrics by category
-  category_performance <- topic_data %>%
-    mutate(
-      category_name = gsub(".*/", "", category),
-      category_name = gsub("_", " ", category_name),
-      category_name = tools::toTitleCase(category_name),
-      Avg_Views_Per_Channel = round(avgViews, 0),
-      Avg_Subs_Per_Channel = round(avgSubs, 0)
-    ) %>%
-    arrange(desc(channelCount)) %>%
-    head(10) %>%
-    select(category_name, channelCount, Avg_Views_Per_Channel, Avg_Subs_Per_Channel, totalVideos)
-  
-  kable(category_performance, caption = "Category Performance Metrics (Top 10)")
-} else {
-  cat("Category performance data not available\n")
-}
-```
 
 ## 4. Video Content Analysis
 
@@ -397,11 +678,9 @@ if (file.exists(file.path(data_path, "video_replies_stats.csv"))) {
 }
 ```
 
-## 5. Data Quality Analysis
+<!-- ## 6. Data Quality Analysis (removed) -->
 
-### Channel Empty Fields Analysis
-
-```{r empty-fields-analysis, echo=FALSE}
+```{r empty-fields-analysis, echo=FALSE, eval=FALSE, include=FALSE}
 if (file.exists(file.path(data_path, "channel_empty_fields.csv"))) {
   empty_fields_data <- read.csv(file.path(data_path, "channel_empty_fields.csv"))
   
@@ -424,9 +703,7 @@ if (file.exists(file.path(data_path, "channel_empty_fields.csv"))) {
 }
 ```
 
-### Channel Video Empty Fields Analysis
-
-```{r video-empty-fields, echo=FALSE}
+```{r video-empty-fields, echo=FALSE, eval=FALSE, include=FALSE}
 if (file.exists(file.path(data_path, "channel_video_empty_fields.csv"))) {
   video_empty_data <- read.csv(file.path(data_path, "channel_video_empty_fields.csv"))
   
@@ -446,11 +723,9 @@ if (file.exists(file.path(data_path, "channel_video_empty_fields.csv"))) {
 }
 ```
 
-## 6. Channel Descriptions Analysis
+<!-- ## 7. Channel Descriptions Analysis (removed) -->
 
-### User Descriptions Export
-
-```{r descriptions-analysis, echo=FALSE}
+```{r descriptions-analysis, echo=FALSE, eval=FALSE, include=FALSE}
 if (file.exists(file.path(data_path, "user_descriptions.csv"))) {
   descriptions_data <- read.csv(file.path(data_path, "user_descriptions.csv"))
   
@@ -467,11 +742,9 @@ if (file.exists(file.path(data_path, "user_descriptions.csv"))) {
 }
 ```
 
-## 7. Performance Insights
+<!-- ## 8. Performance Insights (removed) -->
 
-### Channel Performance Distribution
-
-```{r performance-distribution, echo=FALSE}
+```{r performance-distribution, echo=FALSE, eval=FALSE, include=FALSE}
 if (file.exists(file.path(data_path, "channel_basic_statistics.csv"))) {
   channel_data <- read.csv(file.path(data_path, "channel_basic_statistics.csv"))
   
@@ -514,33 +787,4 @@ if (file.exists(file.path(data_path, "channel_basic_statistics.csv"))) {
 }
 ```
 
-## 8. Data Quality and Methodology
-
-### Data Sources and Processing
-
-This analysis is based on data extracted from YouTube channel information and video content. The data includes:
-
-- **Channel Information**: Subscriber counts, view counts, video counts, country, topic categories
-- **Content Metrics**: Video performance, comment counts, reply counts
-- **Geographic Data**: Country distribution and performance by region
-- **Content Analysis**: Topic category distribution and performance
-
-### Methodology Notes
-
-- **Performance Metrics**: Views per video and views per subscriber are calculated from total counts
-- **Data Quality**: All metrics are calculated from available data; missing values are excluded from calculations
-- **Sample Size**: Analysis covers all channels with available data in the dataset
-- **Geographic Mapping**: Countries are identified from channel metadata
-
-### Limitations
-
-- Data represents a snapshot in time and may not reflect current channel status
-- Some metrics may be affected by platform algorithm changes
-- Channel privacy settings may limit data availability for some profiles
-- Geographic data depends on channel-provided country information
-
----
-
-**Report Generated**: `r Sys.Date()`  
-**Data Source**: YouTube API and channel data  
-**Analysis Period**: Current dataset
+<!-- ## 9. Data Quality and Methodology (removed) -->

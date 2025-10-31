@@ -40,6 +40,85 @@ if (!dir.exists(data_path)) {
 print(paste("Loading data from:", data_path))
 ```
 
+## Intro: TikTok data collection and entity mapping
+
+- TikTokUser (`TikTokUser` node; collection: `tiktok_user_info`)
+  - Collected via user profile fetch in the ETL (see `dags/tiktok_dag.py` → MERGE `TikTokUser` with display_name, bio, avatar, counters)
+  - Report CSVs used: `followers_count.csv`, `likes_count.csv`, `user_verification.csv`, `user_bios.csv`
+
+- TikTokVideo (`TikTokVideo` node; collection: `tiktok_videos`)
+  - Collected via channel/user video listing + detail enrich (see `dags/tiktok_video_dag.py` → MERGE `TikTokVideo` with counts, duration, labels, tags)
+  - Report CSVs used: `user_video_duration.csv`, `user_videos_additional_analysis.csv`, `video_field_presence_stats.csv`, `user_videos_comprehensive_analysis.csv`
+
+- TikTokComment (`TikTokComment` node; collection: `tiktok_video_comments`)
+  - Collected via video comments fetch (see `dags/tiktok_video_comments_dag.py` → MERGE `TikTokComment` and link to `TikTokVideo`)
+  - Report CSVs used: `video_comments_stats.csv` (to be refined)
+
+- TikTokHashtag (`Hashtag` node)
+  - Extracted from `TikTokVideo` hashtags and linked with `HAS_HASHTAG` (`dags/tiktok_video_dag.py`)
+
+- TikTokSticker (`Sticker` node)
+  - Extracted from `TikTokVideo` stickers and linked with `HAS_STICKER` (`dags/tiktok_video_dag.py`)
+
+## Data Completeness
+
+```{r tiktok-data-completeness, echo=FALSE}
+# Helpers
+read_csv_if_exists <- function(path) {
+  if (file.exists(path)) read.csv(path, stringsAsFactors = FALSE) else NULL
+}
+
+is_missing_val <- function(x) {
+  if (is.numeric(x)) return(is.na(x))
+  tx <- trimws(as.character(x))
+  empty_json_array <- grepl("^\\[\\s*\\]$", tx)
+  empty_json_object <- grepl("^\\{\\s*\\}$", tx)
+  is.na(tx) | tx == "" | tolower(tx) %in% c("na", "null", "none") | empty_json_array | empty_json_object
+}
+
+compute_property_table <- function(entity, df) {
+  total <- nrow(df)
+  data.frame(
+    Entity = entity,
+    Property = names(df),
+    NonMissing = sapply(df, function(col) sum(!is_missing_val(col))),
+    Total = total,
+    CompletenessPct = round(100 * sapply(df, function(col) mean(!is_missing_val(col))), 1),
+    stringsAsFactors = FALSE
+  )
+}
+
+# Entities and their CSVs (use available CSVs only)
+entities <- list(
+  list(title = "TikTokUser", csv = "tiktok_users_flat.csv"),
+  list(title = "TikTokVideo", csv = "tiktok_videos_flat.csv"),
+  list(title = "TikTokComment", csv = "tiktok_video_comments_flat.csv"),
+  list(title = "TikTokHashtag", csv = "tiktok_video_hashtags_flat.csv"),
+  list(title = "TikTokSticker", csv = "tiktok_video_stickers_flat.csv")
+)
+
+all_props <- NULL
+for (e in entities) {
+  path <- file.path(data_path, e$csv)
+  df <- read_csv_if_exists(path)
+  if (!is.null(df) && nrow(df) > 0) {
+    all_props <- rbind(all_props, compute_property_table(e$title, df))
+  }
+}
+
+cat("### Per-Property Completeness (%)\n\n")
+if (is.null(all_props)) {
+  cat("No data available for completeness calculations.\n")
+} else {
+  all_props <- all_props[order(all_props$Entity, -all_props$CompletenessPct, all_props$Property), ]
+  DT::datatable(
+    all_props,
+    options = list(scrollX = TRUE, pageLength = 25, order = list(list(0, 'asc'), list(4, 'desc'))),
+    rownames = FALSE,
+    caption = "Per-property completeness across TikTok entities"
+  )
+}
+```
 ## Executive Summary
 
 This report provides a comprehensive analysis of TikTok influencer data, examining user engagement patterns, content characteristics, and platform dynamics. The analysis covers multiple dimensions including follower metrics, content performance, user verification status, and engagement rates.
@@ -167,28 +246,43 @@ if (file.exists(file.path(data_path, "user_verification.csv"))) {
 ## 3. Video Duration Analysis
 
 ```{r video-duration-analysis, echo=FALSE}
-if (file.exists(file.path(data_path, "user_video_duration.csv"))) {
-  duration_data <- read.csv(file.path(data_path, "user_video_duration.csv"))
+# Prefer per-user counts computed from TikTokVideo flat CSV
+videos_flat_path <- file.path(data_path, "tiktok_videos_flat.csv")
+if (file.exists(videos_flat_path)) {
+  videos_flat <- read.csv(videos_flat_path, stringsAsFactors = FALSE)
+  per_user <- videos_flat %>%
+    group_by(username) %>%
+    summarise(total_videos = dplyr::n(), .groups = "drop")
   
-  # Create total videos distribution plot
+  p4 <- ggplot(per_user, aes(x = total_videos)) +
+    geom_histogram(bins = 30, fill = "lightgreen", alpha = 0.7) +
+    labs(title = "Distribution of Total Videos per User (from TikTokVideo)",
+         x = "Total Videos",
+         y = "Number of Users") +
+    theme_minimal()
+  print(p4)
+  
+  cat("**Video Statistics (from TikTokVideo):**\n")
+  cat("- Mean Videos per User:", round(mean(per_user$total_videos, na.rm = TRUE), 2), "\n")
+  cat("- Median Videos per User:", round(median(per_user$total_videos, na.rm = TRUE), 2), "\n")
+  cat("- Max Videos per User:", max(per_user$total_videos, na.rm = TRUE), "\n")
+  cat("- Min Videos per User:", min(per_user$total_videos, na.rm = TRUE), "\n")
+} else if (file.exists(file.path(data_path, "user_video_duration.csv"))) {
+  duration_data <- read.csv(file.path(data_path, "user_video_duration.csv"))
   p4 <- ggplot(duration_data, aes(x = total_videos)) +
     geom_histogram(bins = 30, fill = "lightgreen", alpha = 0.7) +
     labs(title = "Distribution of Total Videos per User",
          x = "Total Videos",
          y = "Number of Users") +
     theme_minimal()
-  
   print(p4)
-  
-  # Summary statistics
   cat("**Video Statistics:**\n")
   cat("- Mean Videos per User:", round(mean(duration_data$total_videos, na.rm = TRUE), 2), "\n")
   cat("- Median Videos per User:", round(median(duration_data$total_videos, na.rm = TRUE), 2), "\n")
   cat("- Max Videos per User:", max(duration_data$total_videos, na.rm = TRUE), "\n")
   cat("- Min Videos per User:", min(duration_data$total_videos, na.rm = TRUE), "\n")
-  
 } else {
-  cat("Video duration data not available\n")
+  cat("Video data not available\n")
 }
 ```
 
@@ -340,6 +434,41 @@ if (file.exists(file.path(data_path, "user_videos_comprehensive_analysis.csv")))
   
 } else {
   cat("Comprehensive analysis data not available\n")
+}
+```
+
+## 10. Hashtag Frequencies
+
+```{r hashtag-frequencies-2, echo=FALSE}
+unique_path <- file.path(data_path, "tiktok_video_hashtags_unique.csv")
+flat_path <- file.path(data_path, "tiktok_video_hashtags_flat.csv")
+if (file.exists(unique_path)) {
+  tags_unique <- read.csv(unique_path, stringsAsFactors = FALSE) %>%
+    arrange(desc(occurrences))
+  display <- tags_unique %>% select(hashtag_name, distinct_videos, distinct_users) %>% head(50)
+  kable(display, caption = "Top 50 Hashtags by Occurrence (TikTok)")
+} else if (file.exists(flat_path)) {
+  tags_flat <- read.csv(flat_path, stringsAsFactors = FALSE)
+  display <- tags_flat %>%
+    group_by(hashtag_name) %>%
+    summarise(distinct_videos = n_distinct(video_id), distinct_users = n_distinct(username), .groups = "drop") %>%
+    arrange(desc(distinct_videos)) %>% head(50)
+  kable(display, caption = "Top 50 Hashtags by Occurrence (TikTok)")
+} else {
+  cat("Hashtag data not available\n")
+}
+```
+
+## Sticker Frequencies
+
+```{r sticker-frequencies, echo=FALSE}
+unique_path <- file.path(data_path, "tiktok_video_stickers_unique.csv")
+if (file.exists(unique_path)) {
+  stickers_unique <- read.csv(unique_path, stringsAsFactors = FALSE) %>%
+    arrange(desc(occurrences))
+  kable(head(stickers_unique, 50), caption = "Top 50 Stickers by Occurrence (TikTok)")
+} else {
+  cat("Sticker frequency data not available\n")
 }
 ```
 

@@ -2,19 +2,29 @@
 var results = [];
 db.youtube_channel_stats.aggregate([
     {
+      $lookup: {
+        from: "youtube_channel_videos",
+        localField: "channel_id",
+        foreignField: "channel_id",
+        as: "collected_videos"
+      }
+    },
+    {
       $project: {
         _id: 0,
         "Channel": "$title",
+        "channel_id": "$channel_id",
         "Views": { $toDouble: "$view_count" },
         "Subscribers": { $toDouble: "$subscriber_count" },
-        "Videos": { $toDouble: "$video_count" },
+        "TotalVideos": { $toDouble: "$video_count" },
+        "CollectedVideos": { $size: "$collected_videos" },
         "Views Per Video": { 
           $divide: [
             { $toDouble: "$view_count" },
             { $cond: [
-              { $eq: [{ $toDouble: "$video_count" }, 0] },
+              { $eq: [{ $size: "$collected_videos" }, 0] },
               1,
-              { $toDouble: "$video_count" }
+              { $size: "$collected_videos" }
             ]}
           ]
         },

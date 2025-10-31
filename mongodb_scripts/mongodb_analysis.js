@@ -130,7 +130,12 @@ function safeRedact(uri) {
     "tiktok/user_popularity_engagement.js",
     "tiktok/compare_videos.js",
     "tiktok/export_tiktok_user_bios.js",
-    "tiktok/merge_tiktok_bios.js"
+    "tiktok/merge_tiktok_bios.js",
+    "tiktok/export_tiktok_users.js",
+    "tiktok/export_tiktok_videos.js",
+    "tiktok/export_tiktok_video_comments_flat.js",
+    "tiktok/export_tiktok_video_hashtags.js",
+    "tiktok/export_tiktok_video_stickers.js"
   ];
 
   const YOUTUBE_SCRIPTS = [
@@ -142,9 +147,17 @@ function safeRedact(uri) {
     "youtube/channel_video_empty_fields.js",
     "youtube/channel_video_statistics.js",
     "youtube/video_comments_stats.js",
+    "youtube/export_youtube_video_comments.js",
     "youtube/video_replies_stats.js",
+    "youtube/export_youtube_video_replies.js",
+    "youtube/export_youtube_video_captions.js",
+    "youtube/export_youtube_video_tags.js",
+    "youtube/export_youtube_video_tags_unique.js",
+    "youtube/export_youtube_video_topics.js",
+    "youtube/export_youtube_video_topics_unique.js",
     "youtube/export_youtube_user_descriptions.js",
-    "youtube/merge_youtube_descriptions.js"
+    "youtube/merge_youtube_descriptions.js",
+    "youtube/export_youtube_videos.js"
   ];
 
   function ensureOutputRedirection() {
@@ -176,7 +189,14 @@ function safeRedact(uri) {
         let data = jsonContent;
         if (typeof data === 'string') data = JSON.parse(data);
         if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'object') {
-          const headers = Object.keys(data[0]);
+          // Build headers as union of keys across all items
+          const headerSet = new Set();
+          data.forEach(item => {
+            if (item && typeof item === 'object') {
+              Object.keys(item).forEach(k => headerSet.add(k));
+            }
+          });
+          const headers = Array.from(headerSet);
           const csv = jsonToCSV(data, headers);
           fs.writeFileSync(csvPath, csv);
         } else if (!Array.isArray(data) && typeof data === 'object') {
