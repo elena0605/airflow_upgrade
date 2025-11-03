@@ -61,9 +61,11 @@ def task_failure_callback(context):
     Callback triggered on task failure.
     """
     task_instance = context['task_instance']
+    # Use logical_date for Airflow 2.x (backward compatible with execution_date)
+    execution_date = getattr(task_instance, 'logical_date', None) or getattr(task_instance, 'execution_date', 'N/A')
     print(
         f"Task {task_instance.task_id} in DAG {task_instance.dag_id} failed "
-        f"on {task_instance.execution_date}. See logs for details."
+        f"on {execution_date}. See logs for details."
     )
     check_logs_for_errors(context)
 
