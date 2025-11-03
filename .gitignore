@@ -35,3 +35,4 @@ neo4j_scripts/*.pyc
 neo4j_scripts/*.log
 neo4j_scripts/*.tmp
 neo4j_scripts/.DS_Store
+neo4j_scripts/csv_files/

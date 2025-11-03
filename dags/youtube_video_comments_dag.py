@@ -39,6 +39,7 @@ with DAG(
 
 ) as dag:
         def fetch_and_store_video_comments(**context):
+          cursor = None
           try:  
             # Choose the connection ID based on your environment (development or production)
             mongo_conn_id = "mongo_prod" if airflow_env == "production" else "mongo_default"
@@ -56,79 +57,94 @@ with DAG(
             comment_collection.create_index("transformed_to_neo4j") 
             
 
-            # Get videos that haven't had comments fetched yet
-            video_documents = video_collection.find(
-              {"comments_fetched": {"$ne": True}},
-              {"video_id": 1, "channel_id": 1, "_id": 0}
-            )
+            # Use MongoDB session for better consistency and no_cursor_timeout to prevent cursor expiration
+            with client.start_session() as session:
+                # Get videos that haven't had comments fetched yet
+                cursor = video_collection.find(
+                  {"comments_fetched": {"$ne": True}},
+                  {"video_id": 1, "channel_id": 1, "_id": 0},
+                  no_cursor_timeout=True,
+                  session=session
+                ).batch_size(50)  # Process in batches to avoid memory issues
 
-            videos_processed = 0
-            new_comment_ids = []         
+                videos_processed = 0
+                new_comment_ids = []         
 
-            for video_doc in video_documents:
-                video_id = video_doc.get("video_id")
-                channel_id = video_doc.get("channel_id")
+                for video_doc in cursor:
+                    video_id = video_doc.get("video_id")
+                    channel_id = video_doc.get("channel_id")
 
-                if not video_id:
-                    continue
+                    if not video_id:
+                        continue
 
-                logger.info(f"Fetching comments for video_id: {video_id}")
+                    logger.info(f"Fetching comments for video_id: {video_id}")
 
-                try:
-                    comments = ye.get_top_level_comments(video_id)
+                    try:
+                        comments = ye.get_top_level_comments(video_id)
 
-                    if comments:
-                        for comment in comments:
-                            comment["fetched_at"] = datetime.now()
-                            comment["transformed_to_neo4j"] = False                    
-                        try:
-                            result = comment_collection.insert_many(comments,ordered=False) 
-                            new_comment_ids.extend([c['comment_id'] for c in comments])
-                            logger.info(f"Stored {len(comments)} new comments for video {video_id}")
-                            
-                        except BulkWriteError as e:
+                        if comments:
                             for comment in comments:
-                             try:
-                                comment_collection.update_one(
-                                    {"comment_id": comment['comment_id']},
-                                    {"$setOnInsert": {
-                                        "transformed_to_neo4j": False,
-                                        "channel_id": channel_id
-                                    }},
-                                    upsert=True
-                                )
-                                existing = comment_collection.find_one({
-                                    "comment_id": comment['comment_id'],
-                                    "transformed_to_neo4j": False
-                                })
-                                if existing:
-                                    new_comment_ids.append(comment['comment_id'])
-                             except Exception as e:
-                                logger.error(f"Error checking comment {comment.get('comment_id')}: {e}")
-                                continue                                          
-                    # Mark video as processed
-                    video_collection.update_one(
-                      {"video_id": video_id},
-                      {
-                        "$set": {
-                            "comments_fetched": True,
-                            "comments_fetched_at": datetime.now(),
-                            "comments_count": len(comments) if comments else 0
-                        }
-                      }
-                    )
-                    videos_processed += 1
+                                comment["fetched_at"] = datetime.now()
+                                comment["transformed_to_neo4j"] = False                    
+                            try:
+                                result = comment_collection.insert_many(comments,ordered=False,session=session) 
+                                new_comment_ids.extend([c['comment_id'] for c in comments])
+                                logger.info(f"Stored {len(comments)} new comments for video {video_id}")
+                                
+                            except BulkWriteError as e:
+                                for comment in comments:
+                                    try:
+                                        comment_collection.update_one(
+                                            {"comment_id": comment['comment_id']},
+                                            {"$setOnInsert": {
+                                                "transformed_to_neo4j": False,
+                                                "channel_id": channel_id
+                                            }},
+                                            upsert=True,
+                                            session=session
+                                        )
+                                        existing = comment_collection.find_one(
+                                            {"comment_id": comment['comment_id'],
+                                            "transformed_to_neo4j": False},
+                                            session=session
+                                        )
+                                        if existing:
+                                            new_comment_ids.append(comment['comment_id'])
+                                    except Exception as e:
+                                        logger.error(f"Error checking comment {comment.get('comment_id')}: {e}")
+                                        continue                                          
+                        # Mark video as processed
+                        video_collection.update_one(
+                            {"video_id": video_id},
+                            {
+                                "$set": {
+                                    "comments_fetched": True,
+                                    "comments_fetched_at": datetime.now(),
+                                    "comments_count": len(comments) if comments else 0
+                                }
+                            },
+                            session=session
+                        )
+                        videos_processed += 1
 
-                except Exception as e:
-                 logger.error(f"Error processing video {video_id}: {e}")
-                 continue
+                    except Exception as e:
+                        logger.error(f"Error processing video {video_id}: {e}")
+                        continue
 
-            logger.info(f"Processed {videos_processed} videos, found {len(new_comment_ids)} comments")
-            
+                logger.info(f"Processed {videos_processed} videos, found {len(new_comment_ids)} comments")
+                
 
           except Exception as e:
-            logger.error(f"Error in fetch_and_store_comments: {e}")
+            logger.error(f"Error in fetch_and_store_comments: {e}", exc_info=True)
             raise
+          finally:
+            # Always close the cursor to prevent resource leaks
+            if cursor is not None:
+                try:
+                    cursor.close()
+                    logger.info("Cursor closed successfully")
+                except Exception as e:
+                    logger.warning(f"Error closing cursor: {e}")
 
 
         
