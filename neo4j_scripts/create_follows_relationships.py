@@ -196,18 +196,54 @@ def create_follows_csv():
     
     return df_follows, stats
 
+def normalize_name(name):
+    """Normalize influencer name for comparison."""
+    if pd.isna(name) or name == "":
+        return None
+    # Lowercase, remove all spaces, remove special characters like ·, -, etc.
+    normalized = str(name).strip().lower()
+    normalized = normalized.replace("·", "").replace("-", "").replace("_", "").replace(" ", "")
+    return normalized
+
 def match_with_influencer_accounts(df_follows):
     """Match follows.csv handles with influencer_accounts.csv to add influencer column."""
     print(f"\nReading {INFLUENCER_ACCOUNTS_CSV}...")
     df_influencer = pd.read_csv(INFLUENCER_ACCOUNTS_CSV, sep=';', na_values=[], keep_default_na=False)
     
+    # Build handle -> Name mapping from Top200TT and Top200YT
+    print("Building Handle -> Name mapping from Top200TT/Top200YT...")
+    handle_to_name = {}
+    df_tt = pd.read_csv(TOP200TT_CSV, sep=';', na_values=[], keep_default_na=False)
+    for idx, row in df_tt.iterrows():
+        handle = normalize_account_value(row.get("Handle", None))
+        name = str(row.get("Name", "")).strip()
+        if handle and name:
+            handle_to_name[handle] = name
+    
+    df_yt = pd.read_csv(TOP200YT_CSV, sep=';', na_values=[], keep_default_na=False)
+    for idx, row in df_yt.iterrows():
+        handle = normalize_account_value(row.get("Handle", None))
+        name = str(row.get("Name", "")).strip()
+        if handle and name:
+            handle_to_name[handle] = name
+    
     # Create a mapping from handles to influencer names
     handle_to_influencer = {}
+    # Also create a mapping from normalized influencer names to influencer names
+    name_to_influencer = {}
     
     for idx, row in df_influencer.iterrows():
         influencer = str(row.get("influencer", "")).strip()
         tiktok_acc = normalize_account_value(row.get("tiktok_account", None))
         youtube_acc = normalize_account_value(row.get("youtube_account", None))
+        
+        # Add to name mapping (normalized)
+        norm_name = normalize_name(influencer)
+        if norm_name:
+            if norm_name not in name_to_influencer:
+                name_to_influencer[norm_name] = []
+            if influencer not in name_to_influencer[norm_name]:
+                name_to_influencer[norm_name].append(influencer)
         
         if tiktok_acc:
             if tiktok_acc not in handle_to_influencer:
@@ -222,6 +258,7 @@ def match_with_influencer_accounts(df_follows):
                 handle_to_influencer[youtube_acc].append(influencer)
     
     print(f"Built mapping from {len(handle_to_influencer)} handles to influencers")
+    print(f"Built mapping from {len(name_to_influencer)} normalized names to influencers")
     
     # Track statistics
     stats = {
@@ -253,17 +290,35 @@ def match_with_influencer_accounts(df_follows):
         for handle in tiktok_handles:
             stats['total_tiktok_handles_checked'] += 1
             normalized_handle = normalize_account_value(handle)
+            
+            # First try matching by handle
             if normalized_handle and normalized_handle in handle_to_influencer:
                 stats['tiktok_handles_matched'] += 1
                 influencers_found.update(handle_to_influencer[normalized_handle])
+            # If handle match fails, try matching by name from Top200TT/Top200YT
+            elif normalized_handle and normalized_handle in handle_to_name:
+                top200_name = handle_to_name[normalized_handle]
+                norm_top200_name = normalize_name(top200_name)
+                if norm_top200_name and norm_top200_name in name_to_influencer:
+                    stats['tiktok_handles_matched'] += 1
+                    influencers_found.update(name_to_influencer[norm_top200_name])
         
         # Find influencers for YouTube handles
         for handle in youtube_handles:
             stats['total_youtube_handles_checked'] += 1
             normalized_handle = normalize_account_value(handle)
+            
+            # First try matching by handle
             if normalized_handle and normalized_handle in handle_to_influencer:
                 stats['youtube_handles_matched'] += 1
                 influencers_found.update(handle_to_influencer[normalized_handle])
+            # If handle match fails, try matching by name from Top200TT/Top200YT
+            elif normalized_handle and normalized_handle in handle_to_name:
+                top200_name = handle_to_name[normalized_handle]
+                norm_top200_name = normalize_name(top200_name)
+                if norm_top200_name and norm_top200_name in name_to_influencer:
+                    stats['youtube_handles_matched'] += 1
+                    influencers_found.update(name_to_influencer[norm_top200_name])
         
         if influencers_found:
             stats['records_with_influencer_match'] += 1
