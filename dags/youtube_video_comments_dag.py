@@ -10,7 +10,7 @@ import requests
 from pymongo.errors import BulkWriteError
 import youtube_etl as ye
 import os
-
+from pymongo import UpdateOne
 # Get environment variables 
 airflow_env = os.getenv("AIRFLOW_ENV", "development")
 
@@ -82,6 +82,38 @@ with DAG(
                     try:
                         comments = ye.get_top_level_comments(video_id)
 
+                        if isinstance(comments, dict) and comments.get("comments_disabled"):
+                            logger.info(f"Comments are disabled for video_id: {video_id}")
+                            video_collection.update_one(
+                                {"video_id": video_id},
+                                {
+                                            "$set": {
+                                            "comments_fetched": True,
+                                            "comments_fetched_at": datetime.now(),
+                                            "comments_disabled": True,
+                                            "comments_count": 0
+                                            }
+                                },
+                                session=session
+                            )
+                            
+                            continue
+
+                        if not comments:
+                            logger.info(f"No comments fetched for video_id: {video_id}")
+                            video_collection.update_one(
+                                {"video_id": video_id},
+                                {
+                                    "$set": {
+                                        "comments_fetched": True,
+                                        "comments_fetched_at": datetime.now(),
+                                        "comments_count": 0
+                                    }
+                                },
+                                session=session
+                            )
+                            continue
+
                         if comments:
                             for comment in comments:
                                 comment["fetched_at"] = datetime.now()
@@ -92,27 +124,35 @@ with DAG(
                                 logger.info(f"Stored {len(comments)} new comments for video {video_id}")
                                 
                             except BulkWriteError as e:
+                                # Prepare bulk upsert operations for all comments
+                                operations = []
                                 for comment in comments:
-                                    try:
-                                        comment_collection.update_one(
+                                    operations.append(
+                                        UpdateOne(
                                             {"comment_id": comment['comment_id']},
                                             {"$setOnInsert": {
                                                 "transformed_to_neo4j": False,
-                                                "channel_id": channel_id
+                                                "channel_id": channel_id,
+                                                **comment  # Include all comment fields for insertion
                                             }},
-                                            upsert=True,
-                                            session=session
+                                            upsert=True
                                         )
-                                        existing = comment_collection.find_one(
-                                            {"comment_id": comment['comment_id'],
-                                            "transformed_to_neo4j": False},
-                                            session=session
-                                        )
-                                        if existing:
-                                            new_comment_ids.append(comment['comment_id'])
-                                    except Exception as e:
-                                        logger.error(f"Error checking comment {comment.get('comment_id')}: {e}")
-                                        continue                                          
+                                    )
+
+                                # Execute bulk write
+                                try:
+                                    result = comment_collection.bulk_write(operations, ordered=False, session=session)
+
+                                    # result.upserted_ids contains the IDs of newly inserted documents
+                                    inserted_ids = list(result.upserted_ids.values())
+                                    new_comment_ids.extend(inserted_ids)
+
+                                   
+                                    logger.info(f"Stored {len(inserted_ids)} new comments for video {video_id} (after handling duplicates)")
+
+                                except Exception as ex:
+                                    logger.error(f"Error during bulk upsert for video {video_id}: {ex}")
+                                                
                         # Mark video as processed
                         video_collection.update_one(
                             {"video_id": video_id},
@@ -143,7 +183,7 @@ with DAG(
                 try:
                     cursor.close()
                     logger.info("Cursor closed successfully")
-                except Exception as e:
+                except Exception as e:  
                     logger.warning(f"Error closing cursor: {e}")
 
 

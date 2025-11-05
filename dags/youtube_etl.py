@@ -255,9 +255,23 @@ def get_top_level_comments(video_id):
             if not next_page_token:
                 logger.info(f"Completed fetching comments for video_id: {video_id}")
                 break
-        except requests.exceptions.HTTPError as http_err:
-            logger.error(f"HTTP error occurred: {http_err}")
-            raise AirflowFailException(f"HTTP error while fetching comments for video_id {video_id}: {http_err}")
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 403:
+                try:
+                    error_json = e.response.json()
+                    reason= error_json.get('error', {}).get('errors', [{}])[0].get('reason')
+                    if reason == 'commentsDisabled':
+                        logger.info(f"Comments are disabled for video_id: {video_id}")
+                        return {"comments_disabled": True}
+                    else:
+                        logger.error(f"HTTP error occurred: {reason}")
+                        raise AirflowFailException(f"HTTP error while fetching comments for video_id {video_id}: {e}")
+                except Exception as e:
+                    logger.error(f"Error parsing error response: {e}")
+                    raise AirflowFailException(f"Error parsing error response for video_id {video_id}: {e}")
+            else:
+                logger.error(f"HTTP error occurred: {e}")
+                raise AirflowFailException(f"HTTP error while fetching comments for video_id {video_id}: {e}")
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Request failed: {e}")
