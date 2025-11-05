@@ -160,36 +160,133 @@ with DAG(
         neo4j_hook = Neo4jHook(conn_id=neo4j_conn_id)
         driver = neo4j_hook.get_conn()
 
-        batch_size = 50
+        # Create unique constraints if they don't exist
+        with driver.session() as constraint_session:
+            # Create unique constraint on comment_id for TikTokComment nodes
+            constraint_session.run("""
+                CREATE CONSTRAINT tiktok_comment_id_unique IF NOT EXISTS
+                FOR (c:TikTokComment) REQUIRE c.comment_id IS UNIQUE
+            """)
+            # Create unique constraint on video_id for TikTokVideo nodes
+            constraint_session.run("""
+                CREATE CONSTRAINT tiktok_video_id_unique IF NOT EXISTS
+                FOR (v:TikTokVideo) REQUIRE v.video_id IS UNIQUE
+            """)
+            logger.info("Unique constraints created/verified for TikTokComment and TikTokVideo nodes")
+
+        # Increased batch size for better performance
+        batch_size = 25
+        # Batch MongoDB updates across multiple Neo4j batches to reduce write operations
+        mongo_update_batch_size = 50
         comments_processed = 0
+        total_batches = 0
+
+        # Optimized Neo4j query - all operations in one transaction
+        neo4j_query = """
+        UNWIND $comments AS c
+        MERGE (comment:TikTokComment {comment_id: c.comment_id})
+        ON CREATE SET
+            comment.text = c.text,
+            comment.like_count = c.like_count,
+            comment.reply_count = c.reply_count,
+            comment.create_time = datetime(c.create_time),
+            comment.username = c.username,
+            comment.video_id = c.video_id
+        MERGE (v:TikTokVideo {video_id: c.video_id})
+        MERGE (v)-[r:HAS_COMMENT]->(comment)
+        SET r.platform = "TikTok"
+        """
 
         # --- Explicit MongoDB session ---
-        with mongo_client.start_session() as session:
+        with mongo_client.start_session() as mongo_session:
             comment_cursor = comments_collection.find(
                 {"transformed_to_neo4j": False},
                 no_cursor_timeout=True,
-                session=session
+                session=mongo_session
             ).batch_size(batch_size)
 
             logger.info("Starting comment transformation from MongoDB to Neo4j")
 
             try:
-                batch_comments = []
-                for comment in comment_cursor:
-                    batch_comments.append(comment)
+                # Reuse Neo4j session for all batches to reduce connection overhead
+                with driver.session() as neo4j_session:
+                    batch_comments = []
+                    mongo_bulk_ops = []
+                    
+                    for comment in comment_cursor:
+                        batch_comments.append(comment)
 
-                    if len(batch_comments) >= batch_size:
-                        comments_processed += process_comment_batch(batch_comments, driver, comments_collection)
-                        batch_comments = []
+                        if len(batch_comments) >= batch_size:
+                            # Process Neo4j batch
+                            neo4j_batch = []
+                            for comment in batch_comments:
+                                neo4j_batch.append({
+                                    "comment_id": comment.get("id"),
+                                    "video_id": comment.get("video_id"),
+                                    "text": comment.get("text"),
+                                    "like_count": comment.get("like_count"),
+                                    "reply_count": comment.get("reply_count"),
+                                    "create_time": comment.get("create_time"),
+                                    "username": comment.get("username")
+                                })
+                                # Prepare MongoDB bulk update
+                                mongo_bulk_ops.append(
+                                    UpdateOne(
+                                        {"_id": comment["_id"]}, 
+                                        {"$set": {"transformed_to_neo4j": True}}
+                                    )
+                                )
 
-                if batch_comments:
-                    comments_processed += process_comment_batch(batch_comments, driver, comments_collection)
+                            # Insert batch into Neo4j using transaction
+                            neo4j_session.write_transaction(
+                                lambda tx: tx.run(neo4j_query, comments=neo4j_batch)
+                            )
+                            
+                            comments_processed += len(batch_comments)
+                            total_batches += 1
+                            batch_comments = []
+
+                            # Batch MongoDB updates to reduce write operations
+                            if len(mongo_bulk_ops) >= mongo_update_batch_size:
+                                comments_collection.bulk_write(mongo_bulk_ops, session=mongo_session)
+                                mongo_bulk_ops = []
+                                logger.info(f"Processed {comments_processed} comments so far...")
+
+                    # Process remaining batch
+                    if batch_comments:
+                        neo4j_batch = []
+                        for comment in batch_comments:
+                            neo4j_batch.append({
+                                "comment_id": comment.get("id"),
+                                "video_id": comment.get("video_id"),
+                                "text": comment.get("text"),
+                                "like_count": comment.get("like_count"),
+                                "reply_count": comment.get("reply_count"),
+                                "create_time": comment.get("create_time"),
+                                "username": comment.get("username")
+                            })
+                            mongo_bulk_ops.append(
+                                UpdateOne(
+                                    {"_id": comment["_id"]}, 
+                                    {"$set": {"transformed_to_neo4j": True}}
+                                )
+                            )
+
+                        neo4j_session.write_transaction(
+                            lambda tx: tx.run(neo4j_query, comments=neo4j_batch)
+                        )
+                        comments_processed += len(batch_comments)
+                        total_batches += 1
+
+                    # Final MongoDB bulk update for any remaining operations
+                    if mongo_bulk_ops:
+                        comments_collection.bulk_write(mongo_bulk_ops, session=mongo_session)
 
                 if comments_processed == 0:
-                    logger.info(f"No comments to process")
+                    logger.info("No comments to process")
                     return
                 
-                logger.info(f"Successfully processed {comments_processed} comments to Neo4j")
+                logger.info(f"Successfully processed {comments_processed} comments in {total_batches} batches to Neo4j")
 
             except Exception as e:
                 logger.error(f"Error in transform_comments_to_graph: {e}", exc_info=True)
@@ -197,57 +294,6 @@ with DAG(
 
             finally:
                 comment_cursor.close()
-    
-    def process_comment_batch(batch_comments, driver, comments_collection):
-        """
-        Inserts a batch of top-level comments into Neo4j and marks them as processed in MongoDB
-        """
-        if not batch_comments:
-            return 0
-        
-        neo4j_batch = []
-        bulk_ops = []
-
-        for comment in batch_comments:
-            neo4j_batch.append({
-                "comment_id": comment.get("id"),
-                "video_id": comment.get("video_id"),
-                "text": comment.get("text"),
-                "like_count": comment.get("like_count"),
-                "reply_count": comment.get("reply_count"),
-                "create_time": comment.get("create_time"),
-                "username": comment.get("username")
-            })
-
-            # Prepare bulk update for MongoDB
-            bulk_ops.append(
-                UpdateOne({"_id": comment["_id"]}, {"$set": {"transformed_to_neo4j": True}})
-            )
-
-        # Insert batch into Neo4j
-        with driver.session() as session:
-            session.run("""
-            UNWIND $comments AS c
-            MERGE (comment:TikTokComment {comment_id: c.comment_id})
-            ON CREATE SET
-                comment.text = c.text,
-                comment.like_count = c.like_count,
-                comment.reply_count = c.reply_count,
-                comment.create_time = datetime(c.create_time),
-                comment.username = c.username,
-                comment.video_id = c.video_id
-
-            MERGE (v:TikTokVideo {video_id: c.video_id})
-            MERGE (v)-[r:HAS_COMMENT]->(comment)
-            SET r.platform = "TikTok"
-            """, comments=neo4j_batch)
-
-        # Update MongoDB as processed in bulk
-        if bulk_ops:
-            comments_collection.bulk_write(bulk_ops)
-
-        logger.info(f"Processed {len(batch_comments)} comments to Neo4j")
-        return len(batch_comments)
 
     #Define tasks
     fetch_and_store_comments_task = PythonOperator(
