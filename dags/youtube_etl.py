@@ -308,7 +308,7 @@ def get_replies(parent_id, video_id):
                 reply = {
                     'comment_id': item['id'],
                     'parent_id': item['snippet']['parentId'],
-                    'video_id': item['snippet']['videoId'],
+                    'video_id': video_id,
                     'channel_id': item['snippet']['channelId'],
                     'authorDisplayName': item['snippet']['authorDisplayName'],
                     'authorProfileImageUrl': item['snippet']['authorProfileImageUrl'],

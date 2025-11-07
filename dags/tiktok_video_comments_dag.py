@@ -175,9 +175,9 @@ with DAG(
             logger.info("Unique constraints created/verified for TikTokComment and TikTokVideo nodes")
 
         # Increased batch size for better performance
-        batch_size = 25
+        batch_size = 500
         # Batch MongoDB updates across multiple Neo4j batches to reduce write operations
-        mongo_update_batch_size = 50
+        mongo_update_batch_size = 2000
         comments_processed = 0
         total_batches = 0
 

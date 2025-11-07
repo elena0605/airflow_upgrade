@@ -6,6 +6,7 @@ import logging
 from callbacks import task_failure_callback, task_success_callback
 import os
 from datetime import datetime, timedelta
+from pymongo import UpdateOne
 
 # Get environment variables 
 airflow_env = os.getenv("AIRFLOW_ENV", "development")
@@ -42,9 +43,58 @@ def transform_comments_unified_task(**context):
         hook = Neo4jHook(conn_id=neo4j_conn_id)
         driver = hook.get_conn()
 
-        with driver.session() as session:
-            total_processed = 0
+        # Create unique constraints if they don't exist
+        with driver.session() as constraint_session:
+            # Create unique constraint on comment_id for YouTubeComment nodes
+            constraint_session.run("""
+                CREATE CONSTRAINT youtube_comment_id_unique IF NOT EXISTS
+                FOR (c:YouTubeComment) REQUIRE c.comment_id IS UNIQUE
+            """)
+            # Create unique constraint on video_id for YouTubeVideo nodes
+            constraint_session.run("""
+                CREATE CONSTRAINT youtube_video_id_unique IF NOT EXISTS
+                FOR (v:YouTubeVideo) REQUIRE v.video_id IS UNIQUE
+            """)
+            logger.info("Unique constraints created/verified for YouTubeComment and YouTubeVideo nodes")
 
+        # Batch processing configuration
+        batch_size = 25
+        mongo_update_batch_size = 50
+
+        # Optimized Neo4j query - all operations in one transaction
+        neo4j_query = """
+        UNWIND $comments AS c
+        MERGE (comment:YouTubeComment {comment_id: c.comment_id})
+        SET
+            comment.parent_id = c.parent_id,
+            comment.video_id = c.video_id,
+            comment.channel_id = c.channel_id,
+            comment.authorDisplayName = c.authorDisplayName,
+            comment.authorProfileImageUrl = c.authorProfileImageUrl,
+            comment.authorChannelUrl = c.authorChannelUrl,
+            comment.authorChannelId = c.authorChannelId,
+            comment.canReply = c.canReply,
+            comment.totalReplyCount = c.totalReplyCount,
+            comment.textDisplay = c.textDisplay,
+            comment.textOriginal = c.textOriginal,
+            comment.canRate = c.canRate,
+            comment.viewerRating = c.viewerRating,
+            comment.likeCount = c.likeCount,
+            comment.publishedAt = c.publishedAt,
+            comment.updatedAt = c.updatedAt
+        MERGE (v:YouTubeVideo {video_id: c.video_id})
+        MERGE (v)-[r:HAS_COMMENT {platform: 'YouTube'}]->(comment)
+        WITH comment, c
+        WHERE c.parent_id IS NOT NULL
+        MERGE (parent:YouTubeComment {comment_id: c.parent_id})
+        MERGE (comment)-[:REPLY_TO_COMMENT]->(parent)
+        """
+
+        total_processed = 0
+        total_batches = 0
+
+        # Reuse Neo4j session for all collections to reduce connection overhead
+        with driver.session() as neo4j_session:
             for collection in collections:
                 # Use MongoDB session for better consistency
                 with mongo_client.start_session() as mongo_session:
@@ -52,9 +102,12 @@ def transform_comments_unified_task(**context):
                         {"transformed_to_neo4j": False},
                         no_cursor_timeout=True,
                         session=mongo_session
-                    )
+                    ).batch_size(batch_size)
 
                     try:
+                        batch_comments = []
+                        mongo_bulk_ops = []
+
                         for doc in cursor:
                             try:
                                 comment_id = doc.get("comment_id")
@@ -65,87 +118,76 @@ def transform_comments_unified_task(**context):
                                     logger.warning(f"Skipping document with missing comment_id or video_id: {doc.get('_id')}")
                                     continue
 
-                                # Merge comment node (removed redundant comment_id SET)
-                                session.run(
-                                    """
-                                    MERGE (c:YouTubeComment {comment_id: $comment_id})
-                                    SET
-                                        c.parent_id = $parent_id,
-                                        c.video_id = $video_id,
-                                        c.channel_id = $channel_id,
-                                        c.authorDisplayName = $authorDisplayName,
-                                        c.authorProfileImageUrl = $authorProfileImageUrl,
-                                        c.authorChannelUrl = $authorChannelUrl,
-                                        c.authorChannelId = $authorChannelId,
-                                        c.canReply = $canReply,
-                                        c.totalReplyCount = $totalReplyCount,
-                                        c.textDisplay = $textDisplay,
-                                        c.textOriginal = $textOriginal,
-                                        c.canRate = $canRate,
-                                        c.viewerRating = $viewerRating,
-                                        c.likeCount = $likeCount,
-                                        c.publishedAt = $publishedAt,
-                                        c.updatedAt = $updatedAt
-                                    """,
-                                    comment_id=comment_id,
-                                    parent_id=doc.get("parent_id"),
-                                    video_id=video_id,
-                                    channel_id=doc.get("channel_id"),
-                                    authorDisplayName=doc.get("authorDisplayName"),
-                                    authorProfileImageUrl=doc.get("authorProfileImageUrl"),
-                                    authorChannelUrl=doc.get("authorChannelUrl"),
-                                    authorChannelId=doc.get("authorChannelId"),
-                                    canReply=doc.get("canReply"),
-                                    totalReplyCount=doc.get("totalReplyCount"),
-                                    textDisplay=doc.get("textDisplay"),
-                                    textOriginal=doc.get("textOriginal"),
-                                    canRate=doc.get("canRate"),
-                                    viewerRating=doc.get("viewerRating"),
-                                    likeCount=doc.get("likeCount"),
-                                    publishedAt=doc.get("publishedAt"),
-                                    updatedAt=doc.get("updatedAt")
+                                # Prepare comment data for batch processing
+                                batch_comments.append({
+                                    "comment_id": comment_id,
+                                    "parent_id": doc.get("parent_id"),
+                                    "video_id": video_id,
+                                    "channel_id": doc.get("channel_id"),
+                                    "authorDisplayName": doc.get("authorDisplayName"),
+                                    "authorProfileImageUrl": doc.get("authorProfileImageUrl"),
+                                    "authorChannelUrl": doc.get("authorChannelUrl"),
+                                    "authorChannelId": doc.get("authorChannelId"),
+                                    "canReply": doc.get("canReply"),
+                                    "totalReplyCount": doc.get("totalReplyCount"),
+                                    "textDisplay": doc.get("textDisplay"),
+                                    "textOriginal": doc.get("textOriginal"),
+                                    "canRate": doc.get("canRate"),
+                                    "viewerRating": doc.get("viewerRating"),
+                                    "likeCount": doc.get("likeCount"),
+                                    "publishedAt": doc.get("publishedAt"),
+                                    "updatedAt": doc.get("updatedAt")
+                                })
+
+                                # Prepare MongoDB bulk update
+                                mongo_bulk_ops.append(
+                                    UpdateOne(
+                                        {"comment_id": comment_id},
+                                        {"$set": {"transformed_to_neo4j": True}}
+                                    )
                                 )
 
-                                # Link comment to video
-                                session.run(
-                                    """
-                                    MERGE (v:YouTubeVideo {video_id: $video_id})
-                                    MERGE (c:YouTubeComment {comment_id: $comment_id})
-                                    MERGE (v)-[r:HAS_COMMENT {platform: 'YouTube'}]->(c)
-                                    """,
-                                    video_id=video_id,
-                                    comment_id=comment_id
-                                )
-
-                                # If it's a reply, link to parent comment
-                                parent_id = doc.get("parent_id")
-                                if parent_id:
-                                    session.run(
-                                        """
-                                        MERGE (parent:YouTubeComment {comment_id: $parent_id})
-                                        MERGE (c:YouTubeComment {comment_id: $comment_id})
-                                        MERGE (c)-[:REPLY_TO_COMMENT]->(parent)
-                                        """,
-                                        parent_id=parent_id,
-                                        comment_id=comment_id
+                                # Process batch when it reaches the batch size
+                                if len(batch_comments) >= batch_size:
+                                    # Insert batch into Neo4j using transaction
+                                    neo4j_session.write_transaction(
+                                        lambda tx: tx.run(neo4j_query, comments=batch_comments)
                                     )
 
-                                # Mark as transformed
-                                collection.update_one(
-                                    {"comment_id": comment_id},
-                                    {"$set": {"transformed_to_neo4j": True}},
-                                    session=mongo_session
-                                )
-                                total_processed += 1
+                                    total_processed += len(batch_comments)
+                                    total_batches += 1
+                                    batch_comments = []
+
+                                    # Batch MongoDB updates to reduce write operations
+                                    if len(mongo_bulk_ops) >= mongo_update_batch_size:
+                                        collection.bulk_write(mongo_bulk_ops, session=mongo_session)
+                                        mongo_bulk_ops = []
+                                        logger.info(f"Processed {total_processed} comments/replies so far...")
 
                             except Exception as e:
                                 logger.error(f"Error transforming comment {doc.get('comment_id')}: {e}", exc_info=True)
                                 continue
 
+                        # Process remaining batch
+                        if batch_comments:
+                            neo4j_session.write_transaction(
+                                lambda tx: tx.run(neo4j_query, comments=batch_comments)
+                            )
+                            total_processed += len(batch_comments)
+                            total_batches += 1
+
+                        # Final MongoDB bulk update for any remaining operations
+                        if mongo_bulk_ops:
+                            collection.bulk_write(mongo_bulk_ops, session=mongo_session)
+
                     finally:
                         cursor.close()
 
-        logger.info(f"Successfully transformed {total_processed} comments/replies to Neo4j")
+        if total_processed == 0:
+            logger.info("No comments/replies to process")
+            return
+
+        logger.info(f"Successfully transformed {total_processed} comments/replies in {total_batches} batches to Neo4j")
 
     except Exception as e:
         logger.error(f"Error in transforming comments to Neo4j: {e}", exc_info=True)
