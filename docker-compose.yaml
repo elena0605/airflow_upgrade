@@ -128,9 +128,10 @@ services:
       - neo4j-logs:/logs
       - neo4j-config:/config
       - neo4j-data:/data
-      - neo4j-plugins:/plugins      
+      - ${AIRFLOW_PROJ_DIR:-.}/neo4j-plugins:/plugins      
     environment:
       - NEO4J_AUTH=neo4j/airflowneo4j
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
     ports:
       - "7474:7474" # HTTP port
       - "7687:7687" # Bolt protocol port (for connecting to Neo4j)
@@ -348,4 +349,3 @@ volumes:
   neo4j-logs:
   neo4j-config:
   neo4j-data:
-  neo4j-plugins:

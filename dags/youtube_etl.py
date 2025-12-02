@@ -9,6 +9,8 @@ from google_auth_oauthlib.flow import Flow
 from airflow.sdk import Variable 
 import pickle
 import os
+import time
+from pymongo.errors import BulkWriteError, OperationFailure
 
 # Set up logging - log to airflow logs & console
 logger = logging.getLogger("airflow.task")
@@ -197,9 +199,45 @@ def get_videos_by_date(channel_id, start_date, end_date):
     logger.info(f"Total videos fetched: {len(videos)}")
     return videos
 
+def safe_bulk_write(collection, operations, session=None, max_retries=10):
+    retry = 0
 
+    while retry < max_retries:
+        try:
+            return collection.bulk_write(
+                operations,
+                ordered=False,
+                session=session
+            )
 
-def get_top_level_comments(video_id):
+        except BulkWriteError as bwe:
+            write_errors = bwe.details.get("writeErrors", [])
+            # Check for 16500 / 429 CosmosDB throttling
+            throttled = any(err.get("code") == 16500 for err in write_errors)
+
+            if throttled:
+                wait = 0.5 * (2 ** retry)
+                logger.warning(f"[safe_bulk_write] CosmosDB 429/16500 throttling. Retrying in {wait:.1f}s...")
+                time.sleep(wait)
+                retry += 1
+                continue
+
+            raise  # other errors should not be retried
+
+        except OperationFailure as e:
+            # CosmosDB 16500 throttling
+            if e.code == 16500:
+                wait = 0.5 * (2 ** retry)
+                logger.warning(f"[safe_bulk_write] OperationFailure 16500. Retrying in {wait:.1f}s...")
+                time.sleep(wait)
+                retry += 1
+                continue
+
+            raise
+
+    raise Exception(f"safe_bulk_write failed after {max_retries} retries.")
+
+def get_top_level_comments(video_id, order_by='relevance'):
     youtube_api_key = Variable.get("YOUTUBE_API_KEY")
     url = "https://www.googleapis.com/youtube/v3/commentThreads"
     params = {
@@ -207,7 +245,8 @@ def get_top_level_comments(video_id):
         'videoId': video_id,
         'maxResults': 100, 
         'textFormat': 'plainText',
-        'key': youtube_api_key
+        'key': youtube_api_key,
+        'order': order_by
     }
 
     comments = []

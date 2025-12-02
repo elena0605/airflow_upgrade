@@ -85,6 +85,9 @@ with DAG(
                 try:
                     # Get comments for the video
                     comments = te.tiktok_get_video_comments(video_id)
+
+                    duplicate_count = 0
+                    new_comments = 0
                     
                     if comments:
                         for comment in comments:
@@ -95,13 +98,15 @@ with DAG(
                             # Insert comments with ordered=False to continue on duplicate key errors
                             result = comments_collection.insert_many(comments, ordered=False)
                             new_comments = len(result.inserted_ids)
+                            duplicate_count = len(comments) - new_comments
                             new_comments_count += new_comments
-                            logger.info(f"Stored {new_comments} new comments for video {video_id}")
+                            logger.info(f"Stored {new_comments} new comments for video {video_id}, {duplicate_count} duplicates")
 
                         except BulkWriteError as bwe:
                             successful_inserts = len(comments) - len(bwe.details.get('writeErrors', []))
+                            duplicate_count = len(comments) - successful_inserts
                             new_comments_count += successful_inserts
-                            logger.info(f"Stored {successful_inserts} new comments for video {video_id} (some were duplicates)")
+                            logger.info(f"Stored {successful_inserts} new comments for video {video_id}, {duplicate_count} duplicates")
                            
                     else:
                         logger.info(f"No comments found for video {video_id}")
@@ -113,7 +118,8 @@ with DAG(
                             "$set": {
                                 "comments_fetched": True,
                                 "comments_fetched_at": datetime.now(),
-                                "comments_count": len(comments) if comments else 0
+                                "comments_count": len(comments) if comments else 0,
+                                "duplicate_comments_count": duplicate_count
                             }
                         }
                     )
@@ -132,13 +138,9 @@ with DAG(
                     logger.error(f"Error processing comments for video {video_id}: {e}", exc_info=True)
                     continue
 
+
             logger.info(f"Processed {videos_processed} videos, fetched {new_comments_count} new comments total")
 
-            # Store stats in XCom
-            context['task_instance'].xcom_push(key='comments_stats', value={
-                'videos_processed': videos_processed,
-                'new_comments_count': new_comments_count
-            })
 
         except Exception as e:
             logger.error(f"Error in fetch_and_store_comments: {e}", exc_info=True)
@@ -175,9 +177,9 @@ with DAG(
             logger.info("Unique constraints created/verified for TikTokComment and TikTokVideo nodes")
 
         # Increased batch size for better performance
-        batch_size = 500
+        batch_size = 25
         # Batch MongoDB updates across multiple Neo4j batches to reduce write operations
-        mongo_update_batch_size = 2000
+        mongo_update_batch_size = 50
         comments_processed = 0
         total_batches = 0
 

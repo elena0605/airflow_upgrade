@@ -261,5 +261,6 @@ with DAG(
     )
    
 
-    load_usernames_task >> fetch_and_store_user_video_task >> transform_to_graph_task   
+    #load_usernames_task >> fetch_and_store_user_video_task >> transform_to_graph_task  
+    transform_to_graph_task
     

@@ -38,131 +38,127 @@ with DAG(
      tags=['youtube_video_comments'],
 
 ) as dag:
-        def fetch_and_store_video_comments(**context):
-          cursor = None
-          try:  
-            # Choose the connection ID based on your environment (development or production)
+    def fetch_and_store_video_comments(**context):
+        cursor = None
+        try:
+            # Mongo setup
             mongo_conn_id = "mongo_prod" if airflow_env == "production" else "mongo_default"
             hook = MongoHook(mongo_conn_id=mongo_conn_id)
             client = hook.get_conn()
-            # Dynamically choose the database based on the environment
             db_name = "rbl" if airflow_env == "production" else "airflow_db"
-            db = client[db_name]  # Use the appropriate database based on environment
-            
+            db = client[db_name]
+
             video_collection = db.youtube_channel_videos
             comment_collection = db.youtube_video_comments
 
+            # Indexes
             comment_collection.create_index("comment_id", unique=True)
-            comment_collection.create_index("video_id")  # For faster lookups
-            comment_collection.create_index("transformed_to_neo4j") 
-            
+            comment_collection.create_index("video_id")
+            comment_collection.create_index("transformed_to_neo4j")
 
-            # Use MongoDB session for better consistency and no_cursor_timeout to prevent cursor expiration
             with client.start_session() as session:
-                # Get videos that haven't had comments fetched yet
                 cursor = video_collection.find(
-                  {"comments_fetched": {"$ne": True}},
-                  {"video_id": 1, "channel_id": 1, "_id": 0},
-                  no_cursor_timeout=True,
-                  session=session
-                ).batch_size(50)  # Process in batches to avoid memory issues
+                    {"comments_fetched_relevance": {"$ne": True}},
+                    {"video_id": 1, "channel_id": 1, "_id": 0},
+                    no_cursor_timeout=True,
+                    session=session
+                ).batch_size(50)
 
                 videos_processed = 0
-                new_comment_ids = []         
+                new_comment_ids = []
 
                 for video_doc in cursor:
                     video_id = video_doc.get("video_id")
                     channel_id = video_doc.get("channel_id")
-
                     if not video_id:
                         continue
 
                     logger.info(f"Fetching comments for video_id: {video_id}")
 
                     try:
-                        comments = ye.get_top_level_comments(video_id)
+                        comments = ye.get_top_level_comments(video_id, order_by='relevance')
 
                         if isinstance(comments, dict) and comments.get("comments_disabled"):
                             logger.info(f"Comments are disabled for video_id: {video_id}")
                             video_collection.update_one(
                                 {"video_id": video_id},
-                                {
-                                            "$set": {
-                                            "comments_fetched": True,
-                                            "comments_fetched_at": datetime.now(),
-                                            "comments_disabled": True,
-                                            "comments_count": 0
-                                            }
-                                },
+                                {"$set": {
+                                    "comments_fetched_relevance": True,
+                                    "comments_fetched_relevance_at": datetime.now(),
+                                    "comments_relevance_disabled": True,
+                                    "comments_count_relevance": 0,
+                                    "duplicate_comments_count": 0
+                                }},
                                 session=session
                             )
-                            
                             continue
 
                         if not comments:
                             logger.info(f"No comments fetched for video_id: {video_id}")
                             video_collection.update_one(
                                 {"video_id": video_id},
-                                {
-                                    "$set": {
-                                        "comments_fetched": True,
-                                        "comments_fetched_at": datetime.now(),
-                                        "comments_count": 0
-                                    }
-                                },
+                                {"$set": {
+                                    "comments_fetched_relevance": True,
+                                    "comments_fetched_relevance_at": datetime.now(),
+                                    "comments_count_relevance": 0,
+                                    "duplicate_comments_count": 0
+                                }},
                                 session=session
                             )
                             continue
 
-                        if comments:
-                            for comment in comments:
-                                comment["fetched_at"] = datetime.now()
-                                comment["transformed_to_neo4j"] = False                    
-                            try:
-                                result = comment_collection.insert_many(comments,ordered=False,session=session) 
-                                new_comment_ids.extend([c['comment_id'] for c in comments])
-                                logger.info(f"Stored {len(comments)} new comments for video {video_id}")
-                                
-                            except BulkWriteError as e:
-                                # Prepare bulk upsert operations for all comments
-                                operations = []
-                                for comment in comments:
-                                    operations.append(
-                                        UpdateOne(
-                                            {"comment_id": comment['comment_id']},
-                                            {"$setOnInsert": {
-                                                "transformed_to_neo4j": False,
-                                                "channel_id": channel_id,
-                                                **comment  # Include all comment fields for insertion
-                                            }},
-                                            upsert=True
-                                        )
-                                    )
+                        # Prepare comments
+                        for comment in comments:
+                            comment["fetched_at"] = datetime.now()
+                            comment["transformed_to_neo4j"] = False
+                            comment["orderByParameter"] = "relevance"
 
-                                # Execute bulk write
-                                try:
-                                    result = comment_collection.bulk_write(operations, ordered=False, session=session)
+                        # Bulk check which comments already exist
+                        comment_ids = [c['comment_id'] for c in comments]
+                        existing_comments = comment_collection.find(
+                            {"comment_id": {"$in": comment_ids}},
+                            {"comment_id": 1, "orderByParameter": 1}
+                        )
+                        existing_dict = {c['comment_id']: c['orderByParameter'] for c in existing_comments}
 
-                                    # result.upserted_ids contains the IDs of newly inserted documents
-                                    inserted_ids = list(result.upserted_ids.values())
-                                    new_comment_ids.extend(inserted_ids)
+                        operations = []
+                        duplicate_count = 0
 
-                                   
-                                    logger.info(f"Stored {len(inserted_ids)} new comments for video {video_id} (after handling duplicates)")
+                        for comment in comments:
+                            cid = comment['comment_id']
+                            if cid in existing_dict:
+                                if existing_dict[cid] == "time":
+                                    # Just switch orderByParameter from time to relevance
+                                    operations.append(UpdateOne(
+                                        {"comment_id": cid},
+                                        {"$set": {"orderByParameter": "relevance"}},
+                                        upsert=False
+                                    ))
+                                else:
+                                    # Already exists with relevance → true duplicate
+                                    duplicate_count += 1
+                            else:
+                                # New comment
+                                operations.append(UpdateOne(
+                                    {"comment_id": cid},
+                                    {"$setOnInsert": comment},
+                                    upsert=True
+                                ))
+                                new_comment_ids.append(cid)
 
-                                except Exception as ex:
-                                    logger.error(f"Error during bulk upsert for video {video_id}: {ex}")
-                                                
+                        if operations:
+                            ye.safe_bulk_write(comment_collection, operations, session=session)
+
+
                         # Mark video as processed
                         video_collection.update_one(
                             {"video_id": video_id},
-                            {
-                                "$set": {
-                                    "comments_fetched": True,
-                                    "comments_fetched_at": datetime.now(),
-                                    "comments_count": len(comments) if comments else 0
-                                }
-                            },
+                            {"$set": {
+                                "comments_fetched_relevance": True,
+                                "comments_fetched_relevance_at": datetime.now(),
+                                "comments_count_relevance": len(comments),
+                                "duplicate_comments_count": duplicate_count
+                            }},
                             session=session
                         )
                         videos_processed += 1
@@ -171,19 +167,17 @@ with DAG(
                         logger.error(f"Error processing video {video_id}: {e}")
                         continue
 
-                logger.info(f"Processed {videos_processed} videos, found {len(new_comment_ids)} comments")
-                
+                logger.info(f"Processed {videos_processed} videos, found {len(new_comment_ids)} new comments")
 
-          except Exception as e:
+        except Exception as e:
             logger.error(f"Error in fetch_and_store_comments: {e}", exc_info=True)
             raise
-          finally:
-            # Always close the cursor to prevent resource leaks
+        finally:
             if cursor is not None:
                 try:
                     cursor.close()
                     logger.info("Cursor closed successfully")
-                except Exception as e:  
+                except Exception as e:
                     logger.warning(f"Error closing cursor: {e}")
 
 
@@ -270,10 +264,10 @@ with DAG(
         #             logger.error(f"Error in transforming comments to Neo4j: {e}")
         #             raise
 
-        fetch_and_store_video_comments_task = PythonOperator(
-            task_id = 'fetch_and_store_video_comments',
-            python_callable = fetch_and_store_video_comments,
-        )
+    fetch_and_store_video_comments_task = PythonOperator(
+        task_id = 'fetch_and_store_video_comments',
+        python_callable = fetch_and_store_video_comments,
+    )
 
         # transform_to_graph_task = PythonOperator(
         #     task_id = 'transform_to_graph',
@@ -281,4 +275,3 @@ with DAG(
         # )
 
         # fetch_and_store_video_comments_task >> transform_to_graph_task
-        fetch_and_store_video_comments_task

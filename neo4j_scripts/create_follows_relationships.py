@@ -453,7 +453,8 @@ def main():
         total_records_with_influencers = len(df_follows_updated[df_follows_updated['Influencer'].notna() & (df_follows_updated['Influencer'].str.strip() != "")])
         print(f"Final: {total_records_with_influencers} Person-Influencer relationships ready to create")
         
-        # Step 5: Create Cypher script
+        # Step 5: Create Cypher script (hardcoded version)
+        # Note: For dynamic execution, use create_follows_dynamic.py instead
         create_cypher_script(df_follows_updated)
         
         print("\n" + "=" * 60)

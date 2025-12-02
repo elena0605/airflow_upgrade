@@ -235,9 +235,9 @@ def tiktok_get_video_comments(video_id):
 
             # Extract comments from response
             comments = resp.get("data", {}).get("comments", [])
-            if not comments:
-                logger.info(f"No more comments found for video {video_id}")
-                break
+            # if not comments:
+            #     logger.info(f"No more comments found for video {video_id}")
+            #     break
 
             # Add fetched time to each comment
             for comment in comments:
