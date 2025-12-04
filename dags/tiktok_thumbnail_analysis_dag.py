@@ -13,6 +13,7 @@ from pymongo import errors as pymongo_errors
 from pymongo.operations import UpdateOne
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from openai import OpenAI
+from openai import AzureOpenAI
 
 from airflow import DAG
 from airflow.models import Variable
@@ -83,13 +84,43 @@ def get_neo4j_driver():
     return neo4j_hook.get_conn()
 
 def get_openai_client():
-    """Get OpenAI client using API key from Airflow Variables."""
+    """Get OpenAI or Azure OpenAI client from Airflow Variables.
+    If Azure variables are set, use AzureOpenAI, otherwise use regular OpenAI.
+    """
     try:
+        # Check for Azure OpenAI variables first
+        try:
+            azure_endpoint = Variable.get("AZURE_OPENAI_ENDPOINT", default_var=None)
+            azure_api_key = Variable.get("AZURE_OPENAI_API_KEY", default_var=None)
+            azure_api_version = Variable.get("AZURE_OPENAI_API_VERSION", default_var="2024-10-21")
+            
+            if azure_endpoint and azure_api_key:
+                logger.info("Using Azure OpenAI client")
+                # Update OPENAI_MODEL if Azure model is specified
+                try:
+                    azure_model = Variable.get("AZURE_OPENAI_MODEL", default_var=None)
+                    if azure_model:
+                        global OPENAI_MODEL
+                        OPENAI_MODEL = azure_model
+                        logger.info("Using Azure OpenAI model: %s", azure_model)
+                except Exception:
+                    pass
+                
+                return AzureOpenAI(
+                    api_key=azure_api_key,
+                    api_version=azure_api_version,
+                    azure_endpoint=azure_endpoint
+                )
+        except Exception as e:
+            logger.debug("Azure OpenAI variables not found, trying regular OpenAI: %s", e)
+        
+        # Fallback to regular OpenAI
         api_key = Variable.get("OPENAI_API_KEY")
+        logger.info("Using regular OpenAI client")
+        return OpenAI(api_key=api_key)
     except Exception as e:
-        logger.error(f"Failed to get OPENAI_API_KEY from Airflow Variables: {e}")
+        logger.error(f"Failed to get OpenAI client from Airflow Variables: {e}")
         raise
-    return OpenAI(api_key=api_key)
 
 @retry(
     stop=stop_after_attempt(3),
