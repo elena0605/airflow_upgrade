@@ -36,7 +36,9 @@ def transform_comments_unified_task(**context):
         db = mongo_client[db_name]
 
         # Collections for comments and replies
-        collections = [db.youtube_video_comments, db.youtube_video_replies]
+        comments_collection = db.youtube_video_comments
+        replies_collection = db.youtube_video_replies
+        collections = [comments_collection, replies_collection]
 
         # Neo4j connection
         neo4j_conn_id = "neo4j_prod" if airflow_env == "production" else "neo4j_default"
@@ -98,8 +100,13 @@ def transform_comments_unified_task(**context):
             for collection in collections:
                 # Use MongoDB session for better consistency
                 with mongo_client.start_session() as mongo_session:
+                    query = {"transformed_to_neo4j": False}
+                    # Only transform the "relevance" comment set from youtube_video_comments
+                    if collection.name == comments_collection.name:
+                        query["orderByParameter"] = "relevance"
+
                     cursor = collection.find(
-                        {"transformed_to_neo4j": False},
+                        query,
                         no_cursor_timeout=True,
                         session=mongo_session
                     ).batch_size(batch_size)

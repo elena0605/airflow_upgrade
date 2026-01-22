@@ -21,7 +21,7 @@ airflow_env = os.getenv("AIRFLOW_ENV", "development")
 
 # Configuration constants - tunable for performance
 COMMENT_BATCH_SIZE = int(os.getenv("REPLY_COMMENT_BATCH_SIZE", "1000"))  # Comments to process per batch
-MONGO_BULK_WRITE_SIZE = int(os.getenv("REPLY_MONGO_BULK_SIZE", "500"))  # MongoDB bulk write batch size
+MONGO_BULK_WRITE_SIZE = int(os.getenv("REPLY_MONGO_BULK_SIZE", "200"))  # MongoDB bulk write batch size
 REPLY_FETCH_BATCH_SIZE = int(os.getenv("REPLY_FETCH_BATCH_SIZE", "50"))  # Comments to fetch replies for in parallel
 API_RATE_LIMIT_DELAY = float(os.getenv("YOUTUBE_API_DELAY", "0.1"))  # Delay between API calls (seconds)
 MAX_RETRIES = int(os.getenv("REPLY_MAX_RETRIES", "3"))  # Max retries for failed API calls
