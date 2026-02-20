@@ -14,6 +14,10 @@ airflow-webserver.pid
 # Ignored __pycache__ folders inside subdirectories
 dags/__pycache__/
 plugins/__pycache__/
+
+# Virtual environment
+.venv/
+
 # Secrets and sensitive config
 .env
 environment_variables.json
@@ -35,7 +39,9 @@ neo4j_scripts/*.pyc
 neo4j_scripts/*.log
 neo4j_scripts/*.tmp
 neo4j_scripts/.DS_Store
-neo4j_scripts/csv_files/
+neo4j_scripts/*.csv
+neo4j_scripts/*.json
+
 
 #OpenAI Batch files
 tmp_openai_batches/
