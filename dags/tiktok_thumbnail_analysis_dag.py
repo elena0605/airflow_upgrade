@@ -365,8 +365,11 @@ def submit_and_poll_batches(**context):
     # If xcom is empty or None, scan the tmp directory for batch files
     if not file_paths:
         logger.info("No batch files from xcom, scanning tmp directory: %s", TMP_DIR)
-        # Find all jsonl files that match the batch pattern
-        batch_files = sorted(TMP_DIR.glob("openai_batch_*.jsonl"))
+        # Include only input batch files; exclude output files with the same prefix.
+        batch_files = sorted(
+            p for p in TMP_DIR.glob("openai_batch_*.jsonl")
+            if "_output_" not in p.name
+        )
         file_paths = [str(f) for f in batch_files]
         logger.info("Found %d batch files in tmp directory", len(file_paths))
     
