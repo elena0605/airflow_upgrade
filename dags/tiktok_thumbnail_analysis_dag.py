@@ -16,7 +16,6 @@ from openai import OpenAI
 from openai import AzureOpenAI
 
 from airflow import DAG
-from airflow.models import Variable
 from airflow.operators.python import PythonOperator
 from airflow.providers.mongo.hooks.mongo import MongoHook
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook
@@ -83,43 +82,40 @@ def get_neo4j_driver():
     neo4j_hook = Neo4jHook(conn_id=neo4j_conn_id)
     return neo4j_hook.get_conn()
 
+def resolve_openai_model() -> str:
+    """Resolve the model/deployment name with Azure-first precedence."""
+    return os.getenv("AZURE_OPENAI_MODEL") or os.getenv("OPENAI_MODEL", "o4-mini")
+
 def get_openai_client():
-    """Get OpenAI or Azure OpenAI client from Airflow Variables.
-    If Azure variables are set, use AzureOpenAI, otherwise use regular OpenAI.
+    """Get OpenAI or Azure OpenAI client from environment variables.
+    If Azure vars are set, use AzureOpenAI, otherwise use regular OpenAI.
     """
     try:
         # Check for Azure OpenAI variables first
-        try:
-            azure_endpoint = Variable.get("AZURE_OPENAI_ENDPOINT", default_var=None)
-            azure_api_key = Variable.get("AZURE_OPENAI_API_KEY", default_var=None)
-            azure_api_version = Variable.get("AZURE_OPENAI_API_VERSION", default_var="2024-10-21")
-            
-            if azure_endpoint and azure_api_key:
-                logger.info("Using Azure OpenAI client")
-                # Update OPENAI_MODEL if Azure model is specified
-                try:
-                    azure_model = Variable.get("AZURE_OPENAI_MODEL", default_var=None)
-                    if azure_model:
-                        global OPENAI_MODEL
-                        OPENAI_MODEL = azure_model
-                        logger.info("Using Azure OpenAI model: %s", azure_model)
-                except Exception:
-                    pass
-                
-                return AzureOpenAI(
-                    api_key=azure_api_key,
-                    api_version=azure_api_version,
-                    azure_endpoint=azure_endpoint
-                )
-        except Exception as e:
-            logger.debug("Azure OpenAI variables not found, trying regular OpenAI: %s", e)
+        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+        azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
+        azure_api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21")
+
+        if azure_endpoint and azure_api_key:
+            logger.info("Using Azure OpenAI client")
+            azure_model = os.getenv("AZURE_OPENAI_MODEL")
+            if azure_model:
+                logger.info("Using Azure OpenAI model: %s", azure_model)
+
+            return AzureOpenAI(
+                api_key=azure_api_key,
+                api_version=azure_api_version,
+                azure_endpoint=azure_endpoint
+            )
         
         # Fallback to regular OpenAI
-        api_key = Variable.get("OPENAI_API_KEY")
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("Missing OPENAI_API_KEY in environment variables.")
         logger.info("Using regular OpenAI client")
         return OpenAI(api_key=api_key)
     except Exception as e:
-        logger.error(f"Failed to get OpenAI client from Airflow Variables: {e}")
+        logger.error(f"Failed to get OpenAI client from environment variables: {e}")
         raise
 
 @retry(
@@ -206,7 +202,7 @@ def build_openai_request_body(thumbnail_url: str, metadata: Dict[str, Any]) -> D
         "method": "POST",
         "url": "/v1/chat/completions",
         "body": {
-            "model": OPENAI_MODEL,
+            "model": resolve_openai_model(),
             "messages": [
                 {
                     "role": "user",
