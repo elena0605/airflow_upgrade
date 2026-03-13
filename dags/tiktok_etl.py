@@ -1,15 +1,15 @@
 from datetime import datetime, timedelta
-import requests
-import pandas as pd
+import requests  # pyright: ignore[reportMissingModuleSource]
+import pandas as pd  # pyright: ignore[reportMissingImports]
 import os
 import csv
 import json
 import logging
 import time
-from airflow.exceptions import AirflowFailException
-from airflow.sdk import Variable    
-from bson import ObjectId
-from neo4j import GraphDatabase
+from airflow.exceptions import AirflowFailException  # pyright: ignore[reportMissingImports]
+from airflow.sdk import Variable      # pyright: ignore[reportMissingImports]
+from bson import ObjectId  # pyright: ignore[reportMissingImports]
+from neo4j import GraphDatabase  # pyright: ignore[reportMissingImports]
 
 # Variables will be accessed when needed inside functions
 # TIKTOK_CLIENT_KEY = Variable.get("TIKTOK_CLIENT_KEY")

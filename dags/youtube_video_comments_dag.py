@@ -1,20 +1,20 @@
 from datetime import datetime, timedelta
-from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
-from airflow.providers.mongo.hooks.mongo import MongoHook
-from airflow.providers.neo4j.hooks.neo4j import Neo4jHook
+from airflow import DAG  # pyright: ignore[reportMissingImports]
+from airflow.providers.standard.operators.python import PythonOperator  # pyright: ignore[reportMissingImports]
+from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
+from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
 from callbacks import task_failure_callback, task_success_callback
-from airflow.exceptions import AirflowFailException
+from airflow.exceptions import AirflowFailException  # pyright: ignore[reportMissingImports]
 import logging
-import requests
-from pymongo.errors import BulkWriteError
+import requests  # pyright: ignore[reportMissingModuleSource]
+from pymongo.errors import BulkWriteError  # pyright: ignore[reportMissingImports]
 import youtube_etl as ye
 import os
-from pymongo import UpdateOne
+from pymongo import UpdateOne  # pyright: ignore[reportMissingImports]
 # Get environment variables 
 airflow_env = os.getenv("AIRFLOW_ENV", "development")
 
-# Set up logging
+# Set up loggings
 logger = logging.getLogger("airflow.task")
 
 default_args = {

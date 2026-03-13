@@ -1,5 +1,5 @@
 import os
-from airflow.exceptions import AirflowFailException
+from airflow.exceptions import AirflowFailException  # pyright: ignore[reportMissingImports]
 
 
 def check_logs_for_errors(context):

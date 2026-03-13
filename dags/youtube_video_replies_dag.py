@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
-from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
-from airflow.providers.mongo.hooks.mongo import MongoHook
-from airflow.providers.neo4j.hooks.neo4j import Neo4jHook
+from collections import defaultdict
+from airflow import DAG  # pyright: ignore[reportMissingImports]
+from airflow.providers.standard.operators.python import PythonOperator  # pyright: ignore[reportMissingImports]
+from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
+from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
 from callbacks import task_failure_callback, task_success_callback
-from airflow.exceptions import AirflowFailException
+from airflow.exceptions import AirflowFailException  # pyright: ignore[reportMissingImports]
 import logging
-from pymongo.errors import BulkWriteError
-from pymongo.operations import UpdateOne
+from pymongo.errors import BulkWriteError  # pyright: ignore[reportMissingImports]
+from pymongo.operations import UpdateOne  # pyright: ignore[reportMissingImports]
 import youtube_etl as ye
 import os
 import time
@@ -25,6 +26,7 @@ MONGO_BULK_WRITE_SIZE = int(os.getenv("REPLY_MONGO_BULK_SIZE", "200"))  # MongoD
 REPLY_FETCH_BATCH_SIZE = int(os.getenv("REPLY_FETCH_BATCH_SIZE", "50"))  # Comments to fetch replies for in parallel
 API_RATE_LIMIT_DELAY = float(os.getenv("YOUTUBE_API_DELAY", "0.1"))  # Delay between API calls (seconds)
 MAX_RETRIES = int(os.getenv("REPLY_MAX_RETRIES", "3"))  # Max retries for failed API calls
+MAX_REPLIES_PER_VIDEO = int(os.getenv("REPLY_MAX_REPLIES_PER_VIDEO", "1000"))  # Global replies cap per video in a DAG run
 
 default_args = {
     "owner": "airflow",
@@ -85,6 +87,7 @@ with DAG(
             batch_comment_updates = []  # Bulk updates for comments
             batch_reply_operations = []  # Bulk operations for replies
             current_batch_comments = []  # Current batch of comments being processed
+            replies_count_by_video = defaultdict(int)  # Track fetched replies count per video
             fetched_at = datetime.now()
 
             def process_reply_batch(replies: list[dict], channel_id: str) -> int:
@@ -177,7 +180,12 @@ with DAG(
                             replies = None
                             for retry in range(MAX_RETRIES):
                                 try:
-                                    replies = ye.get_replies(cid, cvid)
+                                    replies = ye.get_replies(
+                                        cid,
+                                        cvid,
+                                        max_replies_per_video=MAX_REPLIES_PER_VIDEO,
+                                        already_fetched_for_video=replies_count_by_video[cvid]
+                                    )
                                     time.sleep(API_RATE_LIMIT_DELAY)
                                     break
                                 except Exception as e:
@@ -191,6 +199,7 @@ with DAG(
                             if replies:
                                 stored = process_reply_batch(replies, cchid)
                                 total_replies_found += len(replies)
+                                replies_count_by_video[cvid] += len(replies)
                                 logger.debug(f"Fetched {len(replies)} replies for comment {cid}")
 
                             batch_comment_updates.append(
@@ -226,7 +235,12 @@ with DAG(
                         replies = None
                         for retry in range(MAX_RETRIES):
                             try:
-                                replies = ye.get_replies(cid, cvid)
+                                replies = ye.get_replies(
+                                    cid,
+                                    cvid,
+                                    max_replies_per_video=MAX_REPLIES_PER_VIDEO,
+                                    already_fetched_for_video=replies_count_by_video[cvid]
+                                )
                                 time.sleep(API_RATE_LIMIT_DELAY)
                                 break
                             except Exception as e:
@@ -240,6 +254,7 @@ with DAG(
                         if replies:
                             stored = process_reply_batch(replies, cchid)
                             total_replies_found += len(replies)
+                            replies_count_by_video[cvid] += len(replies)
 
                         batch_comment_updates.append(
                             UpdateOne(

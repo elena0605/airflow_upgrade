@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
-from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
-from airflow.providers.mongo.hooks.mongo import MongoHook
-from airflow.providers.neo4j.hooks.neo4j import Neo4jHook
-from pymongo.errors import DuplicateKeyError
+from airflow import DAG  # pyright: ignore[reportMissingImports]
+from airflow.providers.standard.operators.python import PythonOperator  # pyright: ignore[reportMissingImports]
+from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
+from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
+from pymongo.errors import DuplicateKeyError  # pyright: ignore[reportMissingImports]
 from callbacks import task_failure_callback, task_success_callback
 import os
 import logging

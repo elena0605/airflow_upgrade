@@ -13,18 +13,18 @@ For each TikTok video in Neo4j, this DAG:
 
 from __future__ import annotations
 from datetime import datetime, timedelta
-import pendulum
+import pendulum  # pyright: ignore[reportMissingImports]
 import os
 import json
 import logging
 from typing import List, Dict, Any, Optional
 
-from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
-from airflow.providers.neo4j.hooks.neo4j import Neo4jHook
+from airflow import DAG  # pyright: ignore[reportMissingImports]
+from airflow.providers.standard.operators.python import PythonOperator  # pyright: ignore[reportMissingImports]
+from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
 from callbacks import task_failure_callback, task_success_callback
-from openai import OpenAI
-from openai import AzureOpenAI
+from openai import OpenAI  # pyright: ignore[reportMissingImports]
+from openai import AzureOpenAI  # pyright: ignore[reportMissingImports]
 
 # Set up logging
 logger = logging.getLogger("airflow.task")

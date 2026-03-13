@@ -1,12 +1,13 @@
-from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
-from airflow.providers.mongo.hooks.mongo import MongoHook
-from airflow.providers.neo4j.hooks.neo4j import Neo4jHook
+from airflow import DAG  # pyright: ignore[reportMissingImports]
+from airflow.providers.standard.operators.python import PythonOperator  # pyright: ignore[reportMissingImports]
+from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
+from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
 import logging
 from callbacks import task_failure_callback, task_success_callback
 import os
+import time
 from datetime import datetime, timedelta
-from pymongo import UpdateOne
+from pymongo import UpdateOne  # pyright: ignore[reportMissingImports]
 
 # Get environment variables 
 airflow_env = os.getenv("AIRFLOW_ENV", "development")
@@ -60,23 +61,23 @@ def transform_comments_unified_task(**context):
             logger.info("Unique constraints created/verified for YouTubeComment and YouTubeVideo nodes")
 
         # Batch processing configuration
-        batch_size = 25
-        mongo_update_batch_size = 50
+        batch_size = 700
+        max_write_retries = 3
 
         # Optimized Neo4j query - all operations in one transaction
         neo4j_query = """
         UNWIND $comments AS c
         MERGE (comment:YouTubeComment {comment_id: c.comment_id})
         SET
-            comment.parent_id = c.parent_id,
+            comment.parent_id = coalesce(c.parent_id, "TOP_LEVEL"),
             comment.video_id = c.video_id,
             comment.channel_id = c.channel_id,
             comment.authorDisplayName = c.authorDisplayName,
             comment.authorProfileImageUrl = c.authorProfileImageUrl,
             comment.authorChannelUrl = c.authorChannelUrl,
             comment.authorChannelId = c.authorChannelId,
-            comment.canReply = c.canReply,
-            comment.totalReplyCount = c.totalReplyCount,
+            comment.canReply = coalesce(c.canReply, false),
+            comment.totalReplyCount = coalesce(c.totalReplyCount, 0),
             comment.textDisplay = c.textDisplay,
             comment.textOriginal = c.textOriginal,
             comment.canRate = c.canRate,
@@ -95,12 +96,19 @@ def transform_comments_unified_task(**context):
         total_processed = 0
         total_batches = 0
 
+        # Keep compatibility across Neo4j driver versions.
+        def run_write(session_obj, tx_func):
+            if hasattr(session_obj, "execute_write"):
+                return session_obj.execute_write(tx_func)
+            return session_obj.write_transaction(tx_func)
+
         # Reuse Neo4j session for all collections to reduce connection overhead
         with driver.session() as neo4j_session:
             for collection in collections:
                 # Use MongoDB session for better consistency
                 with mongo_client.start_session() as mongo_session:
-                    query = {"transformed_to_neo4j": False}
+                    # Include docs where the flag is missing, null, or false.
+                    query = {"transformed_to_neo4j": {"$ne": True}}
                     # Only transform the "relevance" comment set from youtube_video_comments
                     if collection.name == comments_collection.name:
                         query["orderByParameter"] = "relevance"
@@ -112,80 +120,149 @@ def transform_comments_unified_task(**context):
                     ).batch_size(batch_size)
 
                     try:
-                        batch_comments = []
-                        mongo_bulk_ops = []
+                        batch_docs = []
 
                         for doc in cursor:
-                            try:
-                                comment_id = doc.get("comment_id")
-                                video_id = doc.get("video_id")
+                            batch_docs.append(doc)
 
-                                # Validate required fields
-                                if not comment_id or not video_id:
-                                    logger.warning(f"Skipping document with missing comment_id or video_id: {doc.get('_id')}")
-                                    continue
+                            # Process when chunk reaches batch size.
+                            if len(batch_docs) >= batch_size:
+                                valid_docs = []
+                                batch_comments = []
+                                for d in batch_docs:
+                                    comment_id = d.get("comment_id")
+                                    video_id = d.get("video_id")
+                                    if not comment_id or not video_id:
+                                        logger.warning(
+                                            "Skipping document with missing comment_id or video_id: %s",
+                                            d.get("_id"),
+                                        )
+                                        continue
+                                    valid_docs.append(d)
+                                    batch_comments.append({
+                                        "comment_id": comment_id,
+                                        "parent_id": d.get("parent_id"),
+                                        "video_id": video_id,
+                                        "channel_id": d.get("channel_id"),
+                                        "authorDisplayName": d.get("authorDisplayName"),
+                                        "authorProfileImageUrl": d.get("authorProfileImageUrl"),
+                                        "authorChannelUrl": d.get("authorChannelUrl"),
+                                        "authorChannelId": d.get("authorChannelId"),
+                                        "canReply": d.get("canReply"),
+                                        "totalReplyCount": d.get("totalReplyCount"),
+                                        "textDisplay": d.get("textDisplay"),
+                                        "textOriginal": d.get("textOriginal"),
+                                        "canRate": d.get("canRate"),
+                                        "viewerRating": d.get("viewerRating"),
+                                        "likeCount": d.get("likeCount"),
+                                        "publishedAt": d.get("publishedAt"),
+                                        "updatedAt": d.get("updatedAt")
+                                    })
 
-                                # Prepare comment data for batch processing
-                                batch_comments.append({
-                                    "comment_id": comment_id,
-                                    "parent_id": doc.get("parent_id"),
-                                    "video_id": video_id,
-                                    "channel_id": doc.get("channel_id"),
-                                    "authorDisplayName": doc.get("authorDisplayName"),
-                                    "authorProfileImageUrl": doc.get("authorProfileImageUrl"),
-                                    "authorChannelUrl": doc.get("authorChannelUrl"),
-                                    "authorChannelId": doc.get("authorChannelId"),
-                                    "canReply": doc.get("canReply"),
-                                    "totalReplyCount": doc.get("totalReplyCount"),
-                                    "textDisplay": doc.get("textDisplay"),
-                                    "textOriginal": doc.get("textOriginal"),
-                                    "canRate": doc.get("canRate"),
-                                    "viewerRating": doc.get("viewerRating"),
-                                    "likeCount": doc.get("likeCount"),
-                                    "publishedAt": doc.get("publishedAt"),
-                                    "updatedAt": doc.get("updatedAt")
-                                })
+                                if batch_comments:
+                                    last_error = None
+                                    for attempt in range(1, max_write_retries + 1):
+                                        try:
+                                            run_write(neo4j_session, lambda tx: tx.run(neo4j_query, comments=batch_comments))
+                                            break
+                                        except Exception as e:
+                                            last_error = e
+                                            logger.warning(
+                                                "Neo4j chunk write failed (attempt %d/%d): %s",
+                                                attempt,
+                                                max_write_retries,
+                                                e,
+                                            )
+                                            if attempt < max_write_retries:
+                                                time.sleep(min(2 ** attempt, 8))
+                                    if last_error and attempt == max_write_retries:
+                                        raise RuntimeError(
+                                            f"Neo4j chunk write failed after {max_write_retries} attempts"
+                                        ) from last_error
 
-                                # Prepare MongoDB bulk update
-                                mongo_bulk_ops.append(
-                                    UpdateOne(
-                                        {"comment_id": comment_id},
-                                        {"$set": {"transformed_to_neo4j": True}}
-                                    )
-                                )
-
-                                # Process batch when it reaches the batch size
-                                if len(batch_comments) >= batch_size:
-                                    # Insert batch into Neo4j using transaction
-                                    neo4j_session.write_transaction(
-                                        lambda tx: tx.run(neo4j_query, comments=batch_comments)
-                                    )
+                                    # Mark the same successfully written docs in Mongo.
+                                    mongo_ops = [
+                                        UpdateOne(
+                                            {"_id": d["_id"]},
+                                            {"$set": {"transformed_to_neo4j": True}},
+                                        )
+                                        for d in valid_docs
+                                    ]
+                                    if mongo_ops:
+                                        collection.bulk_write(mongo_ops, ordered=False, session=mongo_session)
 
                                     total_processed += len(batch_comments)
                                     total_batches += 1
-                                    batch_comments = []
+                                    logger.info("Processed %d comments/replies so far...", total_processed)
 
-                                    # Batch MongoDB updates to reduce write operations
-                                    if len(mongo_bulk_ops) >= mongo_update_batch_size:
-                                        collection.bulk_write(mongo_bulk_ops, session=mongo_session)
-                                        mongo_bulk_ops = []
-                                        logger.info(f"Processed {total_processed} comments/replies so far...")
+                                batch_docs = []
 
-                            except Exception as e:
-                                logger.error(f"Error transforming comment {doc.get('comment_id')}: {e}", exc_info=True)
-                                continue
+                        # Process remaining docs in the final chunk.
+                        if batch_docs:
+                            valid_docs = []
+                            batch_comments = []
+                            for d in batch_docs:
+                                comment_id = d.get("comment_id")
+                                video_id = d.get("video_id")
+                                if not comment_id or not video_id:
+                                    logger.warning(
+                                        "Skipping document with missing comment_id or video_id: %s",
+                                        d.get("_id"),
+                                    )
+                                    continue
+                                valid_docs.append(d)
+                                batch_comments.append({
+                                    "comment_id": comment_id,
+                                    "parent_id": d.get("parent_id"),
+                                    "video_id": video_id,
+                                    "channel_id": d.get("channel_id"),
+                                    "authorDisplayName": d.get("authorDisplayName"),
+                                    "authorProfileImageUrl": d.get("authorProfileImageUrl"),
+                                    "authorChannelUrl": d.get("authorChannelUrl"),
+                                    "authorChannelId": d.get("authorChannelId"),
+                                    "canReply": d.get("canReply"),
+                                    "totalReplyCount": d.get("totalReplyCount"),
+                                    "textDisplay": d.get("textDisplay"),
+                                    "textOriginal": d.get("textOriginal"),
+                                    "canRate": d.get("canRate"),
+                                    "viewerRating": d.get("viewerRating"),
+                                    "likeCount": d.get("likeCount"),
+                                    "publishedAt": d.get("publishedAt"),
+                                    "updatedAt": d.get("updatedAt")
+                                })
 
-                        # Process remaining batch
-                        if batch_comments:
-                            neo4j_session.write_transaction(
-                                lambda tx: tx.run(neo4j_query, comments=batch_comments)
-                            )
-                            total_processed += len(batch_comments)
-                            total_batches += 1
+                            if batch_comments:
+                                last_error = None
+                                for attempt in range(1, max_write_retries + 1):
+                                    try:
+                                        run_write(neo4j_session, lambda tx: tx.run(neo4j_query, comments=batch_comments))
+                                        break
+                                    except Exception as e:
+                                        last_error = e
+                                        logger.warning(
+                                            "Neo4j final chunk write failed (attempt %d/%d): %s",
+                                            attempt,
+                                            max_write_retries,
+                                            e,
+                                        )
+                                        if attempt < max_write_retries:
+                                            time.sleep(min(2 ** attempt, 8))
+                                if last_error and attempt == max_write_retries:
+                                    raise RuntimeError(
+                                        f"Neo4j final chunk write failed after {max_write_retries} attempts"
+                                    ) from last_error
 
-                        # Final MongoDB bulk update for any remaining operations
-                        if mongo_bulk_ops:
-                            collection.bulk_write(mongo_bulk_ops, session=mongo_session)
+                                mongo_ops = [
+                                    UpdateOne(
+                                        {"_id": d["_id"]},
+                                        {"$set": {"transformed_to_neo4j": True}},
+                                    )
+                                    for d in valid_docs
+                                ]
+                                if mongo_ops:
+                                    collection.bulk_write(mongo_ops, ordered=False, session=mongo_session)
+                                total_processed += len(batch_comments)
+                                total_batches += 1
 
                     finally:
                         cursor.close()

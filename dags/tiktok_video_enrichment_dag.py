@@ -27,13 +27,13 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-import pendulum
-from airflow import DAG
-from airflow.sdk import Variable
-from airflow.providers.standard.operators.python import PythonOperator
-from airflow.providers.neo4j.hooks.neo4j import Neo4jHook
+import pendulum  # pyright: ignore[reportMissingImports]
+from airflow import DAG  # pyright: ignore[reportMissingImports]
+from airflow.sdk import Variable  # pyright: ignore[reportMissingImports]
+from airflow.providers.standard.operators.python import PythonOperator  # pyright: ignore[reportMissingImports]
+from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
 from callbacks import task_failure_callback, task_success_callback
-from openai import OpenAI, AzureOpenAI
+from openai import OpenAI, AzureOpenAI  # pyright: ignore[reportMissingImports]
 
 logger = logging.getLogger("airflow.task")
 local_tz = pendulum.timezone("Europe/Amsterdam")

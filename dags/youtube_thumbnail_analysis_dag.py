@@ -8,15 +8,15 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
-from pymongo import errors as pymongo_errors
-from pymongo.operations import UpdateOne
-from openai import OpenAI
-from openai import AzureOpenAI
+from pymongo import errors as pymongo_errors  # pyright: ignore[reportMissingImports]
+from pymongo.operations import UpdateOne  # pyright: ignore[reportMissingImports]
+from openai import OpenAI  # pyright: ignore[reportMissingImports]
+from openai import AzureOpenAI  # pyright: ignore[reportMissingImports]
 
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.providers.mongo.hooks.mongo import MongoHook
-from airflow.providers.neo4j.hooks.neo4j import Neo4jHook
+from airflow import DAG  # pyright: ignore[reportMissingImports]
+from airflow.operators.python import PythonOperator  # pyright: ignore[reportMissingImports]
+from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
+from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
 
 logger = logging.getLogger("airflow.task")
 logger.setLevel(logging.INFO)
@@ -24,12 +24,13 @@ logger.setLevel(logging.INFO)
 # ---------------------------
 # Tunables - change as needed
 # ---------------------------
-CHUNK_SIZE = int(os.getenv("OPENAI_CHUNK_SIZE", "1000"))          # docs per OpenAI Batch job
+CHUNK_SIZE = int(os.getenv("OPENAI_CHUNK_SIZE", "100"))          # docs per OpenAI Batch job
 MONGO_BATCH_WRITE_CHUNK = int(os.getenv("MONGO_BATCH_WRITE_CHUNK", "100"))  # docs per bulk write to Mongo
 NEO4J_CHUNK = int(os.getenv("NEO4J_CHUNK", "100"))                # nodes per transaction to Neo4j
 POLL_INTERVAL = int(os.getenv("OPENAI_POLL_INTERVAL", "10"))     # seconds between polling batch status
 TMP_DIR = Path(os.getenv("OPENAI_BATCH_TMP", "/opt/airflow/dags/tmp_openai_batches"))
 TMP_DIR.mkdir(parents=True, exist_ok=True)
+PROGRESS_PATH = TMP_DIR / "youtube_t2_progress.json"
 
 # ---------------------------
 # Environment / connections
@@ -116,6 +117,27 @@ def get_openai_client():
         logger.error(f"Failed to get OpenAI client from environment variables: {e}")
         raise
 
+def load_t2_progress() -> Dict[str, Any]:
+    """Load persisted Task-2 checkpoint state from disk."""
+    if not PROGRESS_PATH.exists():
+        return {"completed": {}}
+    try:
+        with PROGRESS_PATH.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if isinstance(data, dict) and isinstance(data.get("completed"), dict):
+            return data
+        return {"completed": {}}
+    except Exception as e:
+        logger.warning("Could not load t2 progress file %s: %s", PROGRESS_PATH, e)
+        return {"completed": {}}
+
+def save_t2_progress(progress: Dict[str, Any]) -> None:
+    """Persist Task-2 checkpoint state to disk atomically."""
+    tmp = PROGRESS_PATH.with_suffix(".tmp")
+    with tmp.open("w", encoding="utf-8") as fh:
+        json.dump(progress, fh, ensure_ascii=False)
+    tmp.replace(PROGRESS_PATH)
+
 def build_openai_request_body(thumbnail_url: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
     """Return the JSON structure per-line required by the OpenAI Batch format."""
     # custom_id must be <= 512 chars, so only store essential fields
@@ -162,13 +184,17 @@ def stage_openai_batches(**context):
     """
     # Clean up old batch files before creating new ones
     logger.info("Cleaning up old batch files in %s", TMP_DIR)
-    old_input_files = list(TMP_DIR.glob("youtube_batch_*.jsonl"))
+    old_input_files = [
+        p for p in TMP_DIR.glob("youtube_batch_*.jsonl")
+        if "_output_" not in p.name
+    ]
     old_meta_files = list(TMP_DIR.glob("youtube_batch_meta_*.json"))
     old_output_files = list(TMP_DIR.glob("youtube_batch_output_*.jsonl"))
     
     deleted_input = 0
     deleted_meta = 0
     deleted_output = 0
+    progress_deleted = False
     
     for f in old_input_files:
         try:
@@ -184,19 +210,39 @@ def stage_openai_batches(**context):
         except Exception as e:
             logger.warning("Failed to delete %s: %s", f, e)
     
-    # Optionally delete output files too (uncomment if you want to clean everything)
-    # for f in old_output_files:
-    #     try:
-    #         f.unlink()
-    #         deleted_output += 1
-    #     except Exception as e:
-    #         logger.warning("Failed to delete %s: %s", f, e)
+    for f in old_output_files:
+        try:
+            f.unlink()
+            deleted_output += 1
+        except Exception as e:
+            logger.warning("Failed to delete %s: %s", f, e)
+
+    if PROGRESS_PATH.exists():
+        try:
+            PROGRESS_PATH.unlink()
+            progress_deleted = True
+        except Exception as e:
+            logger.warning("Failed to delete progress file %s: %s", PROGRESS_PATH, e)
     
-    logger.info("Cleanup complete: deleted %d input files, %d metadata files, %d output files (kept)", 
-                deleted_input, deleted_meta, deleted_output)
+    logger.info(
+        "Cleanup complete: deleted %d input files, %d metadata files, %d output files, progress file deleted=%s",
+        deleted_input,
+        deleted_meta,
+        deleted_output,
+        progress_deleted,
+    )
     
     coll = get_mongo()
-    query = {"$or": [{"thumbnail_description": {"$exists": False}}, {"thumbnail_keywords": {"$exists": False}}]}
+    query = {
+        "$or": [
+            {"thumbnail_description": {"$exists": False}},
+            {"thumbnail_description": None},
+            {"thumbnail_description": ""},
+            {"thumbnail_keywords": {"$exists": False}},
+            {"thumbnail_keywords": None},
+            {"thumbnail_keywords": {"$size": 0}},
+        ]
+    }
     projection = {"video_id": 1, "thumbnail_url": 1, "video_url": 1}
     cursor = coll.find(query, projection=projection).sort("_id", 1)
 
@@ -311,9 +357,19 @@ def submit_and_poll_batches(**context):
         logger.info("No batch files to submit.")
         return []
 
+    progress = load_t2_progress()
+    completed_map = progress.get("completed", {})
     submitted_info = []  # each item: {file_path, upload_id, batch_id, output_path}
 
     for fp in file_paths:
+        prev = completed_map.get(fp)
+        if prev:
+            prev_output = prev.get("output_path")
+            if prev_output and Path(prev_output).exists():
+                logger.info("Skipping already completed input %s (output exists: %s)", fp, prev_output)
+                submitted_info.append(prev)
+                continue
+
         logger.info("Uploading %s to OpenAI files API", fp)
         with open(fp, "rb") as fh:
             uploaded = client.files.create(file=fh, purpose="batch")
@@ -372,18 +428,12 @@ def submit_and_poll_batches(**context):
                 raise RuntimeError(f"OpenAI batch {batch_id} failed: {status}{error_info}")
             # else continue polling
 
-        # download output (even if all requests failed, we still get an output file with error details)
+        # Download output and error artifacts independently when available.
         output_file_id = getattr(batch_status, "output_file_id", None)
+        error_file_id = getattr(batch_status, "error_file_id", None)
         
-        # If no output_file_id, check for error_file_id (sometimes used when all requests fail)
-        if not output_file_id:
-            error_file_id = getattr(batch_status, "error_file_id", None)
-            if error_file_id:
-                logger.info("No output_file_id, but found error_file_id: %s", error_file_id)
-                output_file_id = error_file_id
-        
-        # If still no file ID, try to get errors directly from batch_status
-        if not output_file_id:
+        # If both IDs are missing, try to extract direct error details.
+        if not output_file_id and not error_file_id:
             logger.warning("Batch %s completed but no output_file_id. Status: %s, Failed: %s", 
                         batch_id, status, failed if request_counts else "unknown")
             
@@ -441,43 +491,80 @@ def submit_and_poll_batches(**context):
             if sample_error:
                 error_msg += f" Sample error: {sample_error[:300]}"
             raise RuntimeError(error_msg)
-        # fetch contents
-        logger.info("Fetching batch output file id %s", output_file_id)
-        content_bytes = client.files.content(output_file_id).content
-        outpath = TMP_DIR / f"youtube_batch_output_{batch_id}.jsonl"
-        with outpath.open("wb") as f:
-            f.write(content_bytes)
-        
-        # Count lines in output file to verify
-        output_lines = content_bytes.decode('utf-8').strip().split('\n')
-        non_empty_lines = [line for line in output_lines if line.strip()]
-        logger.info("Saved output to %s (%d non-empty lines)", outpath, len(non_empty_lines))
-        
-        # Check for errors in the output file
-        error_count = 0
-        sample_errors = []
-        for line in non_empty_lines[:10]:  # Check first 10 lines for errors
-            try:
-                rec = json.loads(line)
-                if rec.get("error"):
-                    error_count += 1
-                    if len(sample_errors) < 3:
-                        error_info = rec.get("error", {})
-                        error_msg = error_info.get("message", "Unknown error") if isinstance(error_info, dict) else str(error_info)
-                        sample_errors.append(error_msg)
-            except Exception:
-                pass
-        
-        if error_count > 0:
-            logger.warning("Found %d errors in output file (checked first 10 lines). Sample errors: %s", 
-                         error_count, sample_errors)
-        
-        # Log if there's a mismatch
-        if request_counts:
-            expected = getattr(request_counts, "total", None) or (request_counts.get("total") if isinstance(request_counts, dict) else None)
-            if expected and len(non_empty_lines) < expected:
-                logger.warning("Output file has %d lines but batch had %d total requests. Some requests may have failed.", 
-                             len(non_empty_lines), expected)
+        outpath = None
+        non_empty_lines: List[str] = []
+        if output_file_id:
+            logger.info("Fetching batch output file id %s", output_file_id)
+            content_bytes = client.files.content(output_file_id).content
+            outpath = TMP_DIR / f"youtube_batch_output_{batch_id}.jsonl"
+            with outpath.open("wb") as f:
+                f.write(content_bytes)
+            
+            # Count lines in output file to verify
+            output_lines = content_bytes.decode("utf-8").strip().split("\n")
+            non_empty_lines = [line for line in output_lines if line.strip()]
+            logger.info("Saved output to %s (%d non-empty lines)", outpath, len(non_empty_lines))
+            
+            # Check for errors in the output file
+            error_count = 0
+            sample_errors = []
+            for line in non_empty_lines[:10]:  # Check first 10 lines for errors
+                try:
+                    rec = json.loads(line)
+                    if rec.get("error"):
+                        error_count += 1
+                        if len(sample_errors) < 3:
+                            error_info = rec.get("error", {})
+                            error_msg = error_info.get("message", "Unknown error") if isinstance(error_info, dict) else str(error_info)
+                            sample_errors.append(error_msg)
+                except Exception:
+                    pass
+            
+            if error_count > 0:
+                logger.warning("Found %d errors in output file (checked first 10 lines). Sample errors: %s", 
+                            error_count, sample_errors)
+            
+            # Log if there's a mismatch
+            if request_counts:
+                expected = getattr(request_counts, "total", None) or (request_counts.get("total") if isinstance(request_counts, dict) else None)
+                if expected and len(non_empty_lines) < expected:
+                    logger.warning("Output file has %d lines but batch had %d total requests. Some requests may have failed.", 
+                                len(non_empty_lines), expected)
+
+        error_outpath = None
+        if error_file_id:
+            logger.info("Fetching batch error file id %s", error_file_id)
+            error_bytes = client.files.content(error_file_id).content
+            error_outpath = TMP_DIR / f"youtube_batch_error_{batch_id}.jsonl"
+            with error_outpath.open("wb") as f:
+                f.write(error_bytes)
+            error_lines = error_bytes.decode("utf-8").strip().split("\n")
+            error_non_empty_lines = [line for line in error_lines if line.strip()]
+            logger.warning(
+                "Saved batch error details to %s (%d non-empty lines)",
+                error_outpath,
+                len(error_non_empty_lines),
+            )
+
+            # Log a few sample request-level failures for fast troubleshooting.
+            sample_error_msgs = []
+            for line in error_non_empty_lines[:10]:
+                try:
+                    rec = json.loads(line)
+                    err = rec.get("error", {})
+                    msg = err.get("message") if isinstance(err, dict) else str(err)
+                    if msg:
+                        sample_error_msgs.append(msg)
+                    if len(sample_error_msgs) >= 3:
+                        break
+                except Exception:
+                    continue
+            if sample_error_msgs:
+                logger.warning("Sample request errors from OpenAI error file: %s", sample_error_msgs)
+
+        if not outpath:
+            logger.warning("Batch %s has no output artifact; skipping parse/update for this batch. See error file: %s", batch_id, error_outpath)
+            continue
 
         # Try to find corresponding metadata file for this batch
         # Input file: youtube_batch_{batch_num}_{timestamp}.jsonl
@@ -496,13 +583,19 @@ def submit_and_poll_batches(**context):
                 if meta_file.exists():
                     meta_file_path = str(meta_file)
         
-        submitted_info.append({
+        current_record = {
             "input_file": fp,
             "input_file_id": input_file_id,
             "batch_id": batch_id,
             "output_path": str(outpath),
+            "error_path": str(error_outpath) if error_outpath else None,
+            "error_file_id": error_file_id,
             "metadata_file": meta_file_path
-        })
+        }
+        submitted_info.append(current_record)
+        completed_map[fp] = current_record
+        progress["completed"] = completed_map
+        save_t2_progress(progress)
 
     context["ti"].xcom_push(key="openai_submitted_batches", value=submitted_info)
     return submitted_info
@@ -792,6 +885,16 @@ def parse_outputs_and_update(**context):
                           sample_ids, [type(vid).__name__ for vid in sample_ids])
                 
                 with neo4j.session() as session:
+                    def run_read(session_obj, tx_func):
+                        if hasattr(session_obj, "execute_read"):
+                            return session_obj.execute_read(tx_func)
+                        return session_obj.read_transaction(tx_func)
+
+                    def run_write(session_obj, tx_func):
+                        if hasattr(session_obj, "execute_write"):
+                            return session_obj.execute_write(tx_func)
+                        return session_obj.write_transaction(tx_func)
+
                     # Check what type video_id is in existing Neo4j nodes (optional debugging)
                     def check_video_id_type_tx(tx):
                         result = tx.run("""
@@ -802,7 +905,7 @@ def parse_outputs_and_update(**context):
                         return list(result)
                     
                     try:
-                        sample_nodes = session.read_transaction(check_video_id_type_tx)
+                        sample_nodes = run_read(session, check_video_id_type_tx)
                         if sample_nodes:
                             sample_ids = [str(record["video_id"]) for record in sample_nodes]
                             logger.info("Sample existing Neo4j video_ids (first 5): %s", sample_ids)
@@ -819,7 +922,7 @@ def parse_outputs_and_update(**context):
                         """)
                     
                     try:
-                        session.write_transaction(create_constraint_tx)
+                        run_write(session, create_constraint_tx)
                         logger.info("Neo4j unique constraint on video_id verified/created")
                     except Exception as e:
                         logger.warning("Could not create Neo4j constraint (may already exist): %s", e)
@@ -841,7 +944,7 @@ def parse_outputs_and_update(**context):
                                 result = tx.run(cypher, rows=chunk)
                                 return result.consume()
                             
-                            summary = session.write_transaction(write_tx)
+                            summary = run_write(session, write_tx)
                             counters = summary.counters if hasattr(summary, 'counters') else None
                             properties_set = counters.properties_set if counters else 0
                             # Count how many nodes were actually matched (properties_set > 0 means node was found and updated)
@@ -896,4 +999,5 @@ with DAG(
 
     # Full pipeline: clean up old files -> create batches -> submit to OpenAI -> parse and update DBs
     t1 >> t2 >> t3
+    
 

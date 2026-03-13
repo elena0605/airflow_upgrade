@@ -1,16 +1,16 @@
-import requests
+import requests  # pyright: ignore[reportMissingModuleSource]
 import logging
 from datetime import datetime
-from airflow.exceptions import AirflowFailException
-import gridfs
-from pymongo import MongoClient
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
-from airflow.sdk import Variable 
+from airflow.exceptions import AirflowFailException  # pyright: ignore[reportMissingImports]
+import gridfs  # pyright: ignore[reportMissingImports]
+from pymongo import MongoClient  # pyright: ignore[reportMissingImports]
+from google.oauth2.credentials import Credentials  # pyright: ignore[reportMissingImports]
+from google_auth_oauthlib.flow import Flow  # pyright: ignore[reportMissingImports]
+from airflow.sdk import Variable   # pyright: ignore[reportMissingImports]
 import pickle
 import os
 import time
-from pymongo.errors import BulkWriteError, OperationFailure
+from pymongo.errors import BulkWriteError, OperationFailure  # pyright: ignore[reportMissingImports]
 
 # Set up logging - log to airflow logs & console
 logger = logging.getLogger("airflow.task")
@@ -319,7 +319,7 @@ def get_top_level_comments(video_id, order_by='relevance'):
     logger.debug(f"Total comments fetched for video_id: {video_id}: {len(comments)}")     
     return comments
 
-def get_replies(parent_id, video_id):
+def get_replies(parent_id, video_id, max_replies_per_video=1000, already_fetched_for_video=0):
     youtube_api_key = Variable.get("YOUTUBE_API_KEY")
     url = "https://www.googleapis.com/youtube/v3/comments"
     params = {
@@ -332,7 +332,14 @@ def get_replies(parent_id, video_id):
 
     replies = []
     next_page_token = None
-    max_replies = 1000 
+    remaining_budget = max_replies_per_video - already_fetched_for_video
+
+    if remaining_budget <= 0:
+        logger.info(
+            f"Reached maximum {max_replies_per_video} replies limit for video_id: {video_id}. "
+            f"Skipping fetch for comment_id: {parent_id}"
+        )
+        return replies
 
     while True:
         if next_page_token:
@@ -365,8 +372,11 @@ def get_replies(parent_id, video_id):
                    
                 }                
                 replies.append(reply)
-                if len(replies) >= max_replies:
-                    logger.info(f"Reached maximum {max_replies} replies limit for comment_id: {parent_id}")
+                if len(replies) >= remaining_budget:
+                    logger.info(
+                        f"Reached maximum {max_replies_per_video} replies limit for video_id: {video_id} "
+                        f"while processing comment_id: {parent_id}"
+                    )
                     return replies
                 # nested_replies = get_replies(reply['reply_id'])
                 # replies.extend(nested_replies)
@@ -403,7 +413,7 @@ def get_youtube_credentials():
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             try:
-                creds.refresh(Request())
+                creds.refresh(Request())  # pyright: ignore[reportUndefinedVariable]
             except Exception as e:
                 logger.error(f"Failed to refresh token: {e}")
                 raise AirflowFailException("Token refresh failed")
