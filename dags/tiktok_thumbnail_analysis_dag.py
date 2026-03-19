@@ -30,7 +30,7 @@ CHUNK_SIZE = int(os.getenv("OPENAI_CHUNK_SIZE", "100"))          # docs per Open
 MONGO_BATCH_WRITE_CHUNK = int(os.getenv("MONGO_BATCH_WRITE_CHUNK", "100"))  # docs per bulk write to Mongo
 NEO4J_CHUNK = int(os.getenv("NEO4J_CHUNK", "100"))                # nodes per transaction to Neo4j
 POLL_INTERVAL = int(os.getenv("OPENAI_POLL_INTERVAL", "10"))     # seconds between polling batch status
-MAX_THUMBNAIL_FETCH = int(os.getenv("TIKTOK_MAX_THUMBNAIL_FETCH", "2000"))  # cap fresh oEmbed fetches due to URL expiry
+MAX_THUMBNAIL_FETCH = int(os.getenv("TIKTOK_MAX_THUMBNAIL_FETCH", "4000"))  # cap fresh oEmbed fetches due to URL expiry
 TMP_DIR = Path(os.getenv("OPENAI_BATCH_TMP", "/opt/airflow/dags/tmp_openai_batches")) / "tiktok"
 TMP_DIR.mkdir(parents=True, exist_ok=True)
 PROGRESS_PATH = TMP_DIR / "tiktok_t2_progress.json"
@@ -311,7 +311,17 @@ def stage_openai_batches(**context):
     )
     
     coll = get_mongo()
-    query = {"$or": [{"video_thumbnail_description": {"$exists": False}}, {"video_thumbnail_keywords": {"$exists": False}}]}
+    query = {
+        "$or": [
+            {"video_thumbnail_description": {"$exists": False}},
+            {"video_thumbnail_description": None},
+            {"video_thumbnail_description": ""},
+            {"video_thumbnail_keywords": {"$exists": False}},
+            {"video_thumbnail_keywords": None},
+            {"video_thumbnail_keywords": ""},
+            {"video_thumbnail_keywords": {"$size": 0}},
+        ]
+    }
     projection = {"username": 1, "video_id": 1}
     cursor = coll.find(query, projection=projection).sort("_id", 1)
 

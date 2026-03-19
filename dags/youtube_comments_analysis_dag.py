@@ -51,6 +51,13 @@ MAX_INPUT_FILE_BYTES = int(os.getenv("YT_COMMENT_BATCH_MAX_BYTES", str(20 * 1024
 MONGO_READ_MAX_RETRIES = int(os.getenv("YT_COMMENT_MONGO_READ_MAX_RETRIES", "8"))
 MONGO_WRITE_MAX_RETRIES = int(os.getenv("YT_COMMENT_MONGO_WRITE_MAX_RETRIES", "8"))
 MONGO_THROTTLE_MIN_SLEEP_SECONDS = float(os.getenv("YT_COMMENT_MONGO_THROTTLE_MIN_SLEEP_SECONDS", "1.0"))
+STAGE1_PREFILTER_ANALYZED_VIDEOS = os.getenv("YT_COMMENT_STAGE1_PREFILTER_ANALYZED_VIDEOS", "true").lower() in (
+    "1",
+    "true",
+    "yes",
+    "y",
+)
+STAGE1_REFRESH_STALE_DAYS = int(os.getenv("YT_COMMENT_STAGE1_REFRESH_STALE_DAYS", "0"))
 OPENAI_SUBMIT_MAX_RETRIES = int(os.getenv("YT_COMMENT_OPENAI_SUBMIT_MAX_RETRIES", "60"))
 OPENAI_SUBMIT_RETRY_BASE_SECONDS = int(os.getenv("YT_COMMENT_OPENAI_SUBMIT_RETRY_BASE_SECONDS", "15"))
 OPENAI_SUBMIT_RETRY_MAX_SECONDS = int(os.getenv("YT_COMMENT_OPENAI_SUBMIT_RETRY_MAX_SECONDS", "300"))
@@ -248,15 +255,37 @@ def stage_openai_batches(**context):
     def _get_candidate_video_ids() -> List[str]:
         # Read from the much smaller videos collection to avoid RU-heavy distinct on comments.
         q = {"video_id": {"$exists": True, "$nin": [None, ""]}}
+        if STAGE1_PREFILTER_ANALYZED_VIDEOS:
+            missing_or_null = [
+                {"comments_analyzed_at": {"$exists": False}},
+                {"comments_analyzed_at": None},
+            ]
+            # Optional refresh window: include old analyses for reprocessing.
+            if STAGE1_REFRESH_STALE_DAYS > 0:
+                stale_cutoff = datetime.utcnow() - timedelta(days=STAGE1_REFRESH_STALE_DAYS)
+                missing_or_null.append({"comments_analyzed_at": {"$lt": stale_cutoff}})
+            q["$or"] = missing_or_null
         p = {"video_id": 1}
         last_error = None
+        logger.info(
+            "Stage 1: listing candidate video_ids from youtube_channel_videos "
+            "(prefilter=%s, refresh_stale_days=%d).",
+            STAGE1_PREFILTER_ANALYZED_VIDEOS,
+            STAGE1_REFRESH_STALE_DAYS,
+        )
         for attempt in range(1, MONGO_READ_MAX_RETRIES + 1):
             try:
                 ids: List[str] = []
+                started = time.perf_counter()
                 for d in videos_coll.find(q, projection=p):
                     vid = d.get("video_id")
                     if vid is not None:
                         ids.append(str(vid))
+                logger.info(
+                    "Stage 1 candidate scan completed: %d video_ids in %.2fs.",
+                    len(ids),
+                    time.perf_counter() - started,
+                )
                 return ids
             except Exception as e:
                 last_error = e
@@ -316,6 +345,7 @@ def stage_openai_batches(**context):
         raise RuntimeError(f"Unable to fetch comments for video_id={video_id}.") from last_error
 
     video_ids = _get_candidate_video_ids()
+    logger.info("Stage 1: processing %d candidate videos.", len(video_ids))
 
     # Stream by video_id to avoid holding all comments for all videos in memory.
     timestamp = int(time.time())
@@ -334,9 +364,20 @@ def stage_openai_batches(**context):
         batch_idx += 1
         input_path = TMP_DIR / f"yt_comments_batch_{batch_idx}_{timestamp}.jsonl"
         meta_path = TMP_DIR / f"yt_comments_batch_meta_{batch_idx}_{timestamp}.json"
+        batch_rows = len(rows)
+        batch_videos = len(meta_rows)
+        batch_mb = current_batch_bytes / (1024 * 1024)
         input_path.write_text("\n".join(rows), encoding="utf-8")
         meta_path.write_text(json.dumps(meta_rows, ensure_ascii=False), encoding="utf-8")
         file_paths.append(str(input_path))
+        logger.info(
+            "Stage 1 batch flush %d: rows=%d videos=%d size=%.2fMB path=%s.",
+            batch_idx,
+            batch_rows,
+            batch_videos,
+            batch_mb,
+            input_path,
+        )
         rows = []
         meta_rows = []
         current_batch_bytes = 0
@@ -372,9 +413,20 @@ def stage_openai_batches(**context):
         batch_idx += 1
         input_path = TMP_DIR / f"yt_comments_batch_{batch_idx}_{timestamp}.jsonl"
         meta_path = TMP_DIR / f"yt_comments_batch_meta_{batch_idx}_{timestamp}.json"
+        batch_rows = len(rows)
+        batch_videos = len(meta_rows)
+        batch_mb = current_batch_bytes / (1024 * 1024)
         input_path.write_text("\n".join(rows), encoding="utf-8")
         meta_path.write_text(json.dumps(meta_rows, ensure_ascii=False), encoding="utf-8")
         file_paths.append(str(input_path))
+        logger.info(
+            "Stage 1 final batch flush %d: rows=%d videos=%d size=%.2fMB path=%s.",
+            batch_idx,
+            batch_rows,
+            batch_videos,
+            batch_mb,
+            input_path,
+        )
 
     logger.info(
         "Staged %d videos (%d comments) into %d input files.",

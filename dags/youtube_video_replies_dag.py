@@ -12,6 +12,7 @@ from pymongo.operations import UpdateOne  # pyright: ignore[reportMissingImports
 import youtube_etl as ye
 import os
 import time
+import re
 from typing import List, Dict, Any
 
 # Set up logging
@@ -23,10 +24,16 @@ airflow_env = os.getenv("AIRFLOW_ENV", "development")
 # Configuration constants - tunable for performance
 COMMENT_BATCH_SIZE = int(os.getenv("REPLY_COMMENT_BATCH_SIZE", "1000"))  # Comments to process per batch
 MONGO_BULK_WRITE_SIZE = int(os.getenv("REPLY_MONGO_BULK_SIZE", "200"))  # MongoDB bulk write batch size
+STATE_BULK_WRITE_SIZE = int(os.getenv("REPLY_STATE_BULK_SIZE", "50"))  # Lower default for CosmosDB state writes
 REPLY_FETCH_BATCH_SIZE = int(os.getenv("REPLY_FETCH_BATCH_SIZE", "50"))  # Comments to fetch replies for in parallel
 API_RATE_LIMIT_DELAY = float(os.getenv("YOUTUBE_API_DELAY", "0.1"))  # Delay between API calls (seconds)
 MAX_RETRIES = int(os.getenv("REPLY_MAX_RETRIES", "3"))  # Max retries for failed API calls
+STATE_WRITE_MAX_RETRIES = int(os.getenv("REPLY_STATE_WRITE_MAX_RETRIES", "6"))  # Keep retries bounded to avoid long stalls
+READ_MAX_RETRIES = int(os.getenv("REPLY_MONGO_READ_MAX_RETRIES", "6"))
+READ_MIN_SLEEP_SECONDS = float(os.getenv("REPLY_MONGO_READ_MIN_SLEEP_SECONDS", "0.2"))
 MAX_REPLIES_PER_VIDEO = int(os.getenv("REPLY_MAX_REPLIES_PER_VIDEO", "1000"))  # Global replies cap per video in a DAG run
+USE_REPLIES_STATE_COLLECTION = os.getenv("YT_REPLIES_USE_STATE_COLLECTION", "true").lower() in ("1", "true", "yes", "y")
+REPLIES_STATE_COLLECTION_NAME = os.getenv("YT_REPLIES_STATE_COLLECTION", "youtube_replies_fetch_state")
 
 default_args = {
     "owner": "airflow",
@@ -65,30 +72,138 @@ with DAG(
 
             comment_collection = db.youtube_video_comments
             replies_collection = db.youtube_video_replies
+            state_collection = db[REPLIES_STATE_COLLECTION_NAME]
 
             # Create indexes if they don't exist (idempotent)
             try:
                 replies_collection.create_index("comment_id", unique=True)
                 replies_collection.create_index("parent_id")
                 replies_collection.create_index("transformed_to_neo4j")
-                comment_collection.create_index("replies_fetched")
+                if USE_REPLIES_STATE_COLLECTION:
+                    try:
+                        state_collection.create_index("comment_id", unique=True)
+                    except Exception as e:
+                        logger.warning(
+                            "Could not create unique index on %s.comment_id (%s). Falling back to regular index.",
+                            REPLIES_STATE_COLLECTION_NAME,
+                            e,
+                        )
+                        state_collection.create_index("comment_id")
+                    state_collection.create_index("replies_fetched")
+                else:
+                    comment_collection.create_index("replies_fetched")
             except Exception as e:
                 logger.warning(f"Index creation warning (may already exist): {e}")
 
-            # Use cursor with batch_size for efficient pagination
-            cursor = comment_collection.find(
-                {"replies_fetched": {"$ne": True}},
-                {"comment_id": 1, "channel_id": 1, "video_id": 1, "_id": 0}
-            ).batch_size(COMMENT_BATCH_SIZE)
+            # Base query for candidate comments.
+            cursor_filter = {"comment_id": {"$exists": True, "$ne": None}}
+            if not USE_REPLIES_STATE_COLLECTION:
+                cursor_filter["replies_fetched"] = {"$ne": True}
 
             comments_processed = 0
             total_replies_found = 0
             total_replies_stored = 0
-            batch_comment_updates = []  # Bulk updates for comments
+            batch_processed_updates = []  # Bulk updates for processed-state tracking
             batch_reply_operations = []  # Bulk operations for replies
             current_batch_comments = []  # Current batch of comments being processed
             replies_count_by_video = defaultdict(int)  # Track fetched replies count per video
+            skipped_already_processed = 0
             fetched_at = datetime.now()
+            last_seen_id = None
+
+            def _is_mongo_throttled(exc: Exception) -> bool:
+                code = getattr(exc, "code", None)
+                if code in (16500, 429):
+                    return True
+                msg = str(exc).lower()
+                return (
+                    "requestratetoolarge" in msg
+                    or "toomanyrequests" in msg
+                    or "error=16500" in msg
+                    or " 429" in msg
+                )
+
+            def _retry_after_seconds(exc: Exception, attempt: int) -> float:
+                msg = str(exc)
+                match = re.search(r"RetryAfterMs=(\d+)", msg)
+                if match:
+                    try:
+                        return max(READ_MIN_SLEEP_SECONDS, int(match.group(1)) / 1000.0)
+                    except ValueError:
+                        pass
+                return max(READ_MIN_SLEEP_SECONDS, 0.5 * (2 ** attempt))
+
+            def _next_comments_page() -> List[Dict[str, Any]]:
+                """Read comments in _id-ordered pages to avoid long-lived cursors timing out."""
+                nonlocal last_seen_id
+                page_filter = dict(cursor_filter)
+                if last_seen_id is not None:
+                    page_filter["_id"] = {"$gt": last_seen_id}
+                docs = []
+                for attempt in range(READ_MAX_RETRIES):
+                    try:
+                        docs = list(
+                            comment_collection.find(
+                                page_filter,
+                                {"_id": 1, "comment_id": 1, "channel_id": 1, "video_id": 1},
+                            ).sort("_id", 1).limit(COMMENT_BATCH_SIZE)
+                        )
+                        break
+                    except Exception as e:
+                        if not _is_mongo_throttled(e) or attempt == READ_MAX_RETRIES - 1:
+                            raise
+                        wait = _retry_after_seconds(e, attempt)
+                        logger.warning(
+                            "State/read throttled while fetching comments page (attempt %d/%d). Retrying in %.2fs...",
+                            attempt + 1,
+                            READ_MAX_RETRIES,
+                            wait,
+                        )
+                        time.sleep(wait)
+                if docs:
+                    last_seen_id = docs[-1].get("_id")
+                return docs
+
+            def _filter_unprocessed_comments(comments_batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+                """Skip comments already marked processed in state collection."""
+                nonlocal skipped_already_processed
+                if not USE_REPLIES_STATE_COLLECTION or not comments_batch:
+                    return comments_batch
+                ids = [c.get("comment_id") for c in comments_batch if c.get("comment_id")]
+                if not ids:
+                    return []
+                processed_ids = set()
+                state_docs = []
+                for attempt in range(READ_MAX_RETRIES):
+                    try:
+                        state_docs = list(
+                            state_collection.find(
+                                {"comment_id": {"$in": ids}, "replies_fetched": True},
+                                {"comment_id": 1, "_id": 0},
+                            )
+                        )
+                        break
+                    except Exception as e:
+                        if not _is_mongo_throttled(e) or attempt == READ_MAX_RETRIES - 1:
+                            raise
+                        wait = _retry_after_seconds(e, attempt)
+                        logger.warning(
+                            "State/read throttled while checking processed comment ids (attempt %d/%d). Retrying in %.2fs...",
+                            attempt + 1,
+                            READ_MAX_RETRIES,
+                            wait,
+                        )
+                        time.sleep(wait)
+
+                for doc in state_docs:
+                    cid = doc.get("comment_id")
+                    if cid:
+                        processed_ids.add(cid)
+                if not processed_ids:
+                    return comments_batch
+                filtered = [c for c in comments_batch if c.get("comment_id") not in processed_ids]
+                skipped_already_processed += (len(comments_batch) - len(filtered))
+                return filtered
 
             def process_reply_batch(replies: list[dict], channel_id: str) -> int:
                 """Process a batch of replies and add to bulk operations."""
@@ -134,30 +249,59 @@ with DAG(
                         logger.error(f"Error in bulk write for replies: {e}")
                         batch_reply_operations.clear()
 
-                # Flush comment updates
-                # CRITICAL: Use safe_bulk_write for CosmosDB throttling handling
-                if batch_comment_updates:
+                # Flush processed-state updates
+                if batch_processed_updates:
                     try:
-                        result = ye.safe_bulk_write(
-                            comment_collection,
-                            batch_comment_updates,
-                            max_retries=10  # Use higher retries for CosmosDB
+                        target_collection = state_collection if USE_REPLIES_STATE_COLLECTION else comment_collection
+                        target_name = REPLIES_STATE_COLLECTION_NAME if USE_REPLIES_STATE_COLLECTION else "youtube_video_comments"
+                        modified = 0
+                        matched = 0
+                        upserted = 0
+                        remaining = []
+                        for i in range(0, len(batch_processed_updates), STATE_BULK_WRITE_SIZE):
+                            chunk = batch_processed_updates[i:i + STATE_BULK_WRITE_SIZE]
+                            try:
+                                result = ye.safe_bulk_write(
+                                    target_collection,
+                                    chunk,
+                                    max_retries=STATE_WRITE_MAX_RETRIES,
+                                )
+                                modified += getattr(result, "modified_count", 0)
+                                matched += getattr(result, "matched_count", 0)
+                                upserted += getattr(result, "upserted_count", 0)
+                            except Exception as e:
+                                logger.error(
+                                    "State write chunk failed for %s (chunk_size=%d): %s",
+                                    target_name,
+                                    len(chunk),
+                                    e,
+                                )
+                                remaining.extend(chunk)
+
+                        logger.info(
+                            "Updated %d rows in %s as replies-processed (modified: %d, matched: %d, upserted: %d, deferred: %d)",
+                            len(batch_processed_updates) - len(remaining),
+                            target_name,
+                            modified,
+                            matched,
+                            upserted,
+                            len(remaining),
                         )
-                        modified = getattr(result, 'modified_count', 0)
-                        matched = getattr(result, 'matched_count', 0)
-                        logger.info(f"Updated {len(batch_comment_updates)} comments as processed "
-                                  f"(modified: {modified}, matched: {matched})")
-                        batch_comment_updates.clear()
+                        batch_processed_updates.clear()
+                        batch_processed_updates.extend(remaining)
                     except Exception as e:
-                        logger.error(f"Error in bulk write for comments: {e}", exc_info=True)
+                        logger.error("Error in bulk write for replies processed-state: %s", e, exc_info=True)
                         # Don't clear on error - will retry on next flush
                         # Only clear if it's a non-retryable error
                         if not isinstance(e, BulkWriteError):
-                            batch_comment_updates.clear()
+                            batch_processed_updates.clear()
 
-            # Main processing loop
-            try:
-                for comment_doc in cursor:
+            # Main processing loop (paged by _id, no long-lived read cursor).
+            while True:
+                page_docs = _next_comments_page()
+                if not page_docs:
+                    break
+                for comment_doc in page_docs:
                     comment_id = comment_doc.get("comment_id")
                     channel_id = comment_doc.get("channel_id")
                     video_id = comment_doc.get("video_id")
@@ -171,7 +315,8 @@ with DAG(
                     })
 
                     if len(current_batch_comments) >= REPLY_FETCH_BATCH_SIZE:
-                        for comment_info in current_batch_comments:
+                        filtered_comments = _filter_unprocessed_comments(current_batch_comments)
+                        for comment_info in filtered_comments:
                             cid = comment_info["comment_id"]
                             cvid = comment_info["video_id"]
                             cchid = comment_info["channel_id"]
@@ -202,61 +347,96 @@ with DAG(
                                 replies_count_by_video[cvid] += len(replies)
                                 logger.debug(f"Fetched {len(replies)} replies for comment {cid}")
 
-                            batch_comment_updates.append(
-                                UpdateOne(
-                                    {"comment_id": cid},
-                                    {"$set": {
-                                        "replies_fetched": True,
-                                        "replies_fetched_at": fetched_at,
-                                        "replies_count": len(replies) if replies else 0
-                                    }}
+                            if USE_REPLIES_STATE_COLLECTION:
+                                batch_processed_updates.append(
+                                    UpdateOne(
+                                        {"comment_id": cid},
+                                        {"$set": {
+                                            "comment_id": cid,
+                                            "video_id": cvid,
+                                            "channel_id": cchid,
+                                            "replies_fetched": True,
+                                            "replies_fetched_at": fetched_at,
+                                            "replies_count": len(replies) if replies else 0,
+                                            "source": "youtube_video_replies_dag",
+                                        }},
+                                        upsert=True,
+                                    )
                                 )
-                            )
+                            else:
+                                batch_processed_updates.append(
+                                    UpdateOne(
+                                        {"comment_id": cid},
+                                        {"$set": {
+                                            "replies_fetched": True,
+                                            "replies_fetched_at": fetched_at,
+                                            "replies_count": len(replies) if replies else 0
+                                        }}
+                                    )
+                                )
                             comments_processed += 1
 
                         if len(batch_reply_operations) >= MONGO_BULK_WRITE_SIZE:
                             flush_mongo_operations()
                         current_batch_comments.clear()
 
-                        if comments_processed % 1000 == 0:
+                        if comments_processed > 0 and comments_processed % 1000 == 0:
                             logger.info(
                                 f"Progress: {comments_processed} comments processed, "
                                 f"{total_replies_found} replies found, "
                                 f"{total_replies_stored} replies stored"
                             )
 
-                # Process remaining comments
-                if current_batch_comments:
-                    for comment_info in current_batch_comments:
-                        cid = comment_info["comment_id"]
-                        cvid = comment_info["video_id"]
-                        cchid = comment_info["channel_id"]
+            # Process remaining comments
+            if current_batch_comments:
+                filtered_comments = _filter_unprocessed_comments(current_batch_comments)
+                for comment_info in filtered_comments:
+                    cid = comment_info["comment_id"]
+                    cvid = comment_info["video_id"]
+                    cchid = comment_info["channel_id"]
 
-                        replies = None
-                        for retry in range(MAX_RETRIES):
-                            try:
-                                replies = ye.get_replies(
-                                    cid,
-                                    cvid,
-                                    max_replies_per_video=MAX_REPLIES_PER_VIDEO,
-                                    already_fetched_for_video=replies_count_by_video[cvid]
-                                )
-                                time.sleep(API_RATE_LIMIT_DELAY)
-                                break
-                            except Exception as e:
-                                if retry < MAX_RETRIES - 1:
-                                    wait_time = (retry + 1) * 2
-                                    logger.warning(f"Retry {retry + 1}/{MAX_RETRIES} for comment {cid}: {e}")
-                                    time.sleep(wait_time)
-                                else:
-                                    logger.error(f"Failed to fetch replies for comment {cid} after {MAX_RETRIES} retries: {e}")
+                    replies = None
+                    for retry in range(MAX_RETRIES):
+                        try:
+                            replies = ye.get_replies(
+                                cid,
+                                cvid,
+                                max_replies_per_video=MAX_REPLIES_PER_VIDEO,
+                                already_fetched_for_video=replies_count_by_video[cvid]
+                            )
+                            time.sleep(API_RATE_LIMIT_DELAY)
+                            break
+                        except Exception as e:
+                            if retry < MAX_RETRIES - 1:
+                                wait_time = (retry + 1) * 2
+                                logger.warning(f"Retry {retry + 1}/{MAX_RETRIES} for comment {cid}: {e}")
+                                time.sleep(wait_time)
+                            else:
+                                logger.error(f"Failed to fetch replies for comment {cid} after {MAX_RETRIES} retries: {e}")
 
-                        if replies:
-                            stored = process_reply_batch(replies, cchid)
-                            total_replies_found += len(replies)
-                            replies_count_by_video[cvid] += len(replies)
+                    if replies:
+                        stored = process_reply_batch(replies, cchid)
+                        total_replies_found += len(replies)
+                        replies_count_by_video[cvid] += len(replies)
 
-                        batch_comment_updates.append(
+                    if USE_REPLIES_STATE_COLLECTION:
+                        batch_processed_updates.append(
+                            UpdateOne(
+                                {"comment_id": cid},
+                                {"$set": {
+                                    "comment_id": cid,
+                                    "video_id": cvid,
+                                    "channel_id": cchid,
+                                    "replies_fetched": True,
+                                    "replies_fetched_at": fetched_at,
+                                    "replies_count": len(replies) if replies else 0,
+                                    "source": "youtube_video_replies_dag",
+                                }},
+                                upsert=True,
+                            )
+                        )
+                    else:
+                        batch_processed_updates.append(
                             UpdateOne(
                                 {"comment_id": cid},
                                 {"$set": {
@@ -266,18 +446,16 @@ with DAG(
                                 }}
                             )
                         )
-                        comments_processed += 1
+                    comments_processed += 1
 
-                # Final flush
-                flush_mongo_operations()
-
-            finally:
-                cursor.close()
+            # Final flush
+            flush_mongo_operations()
 
             logger.info(
                 f"Processing complete: {comments_processed} comments processed, "
                 f"{total_replies_found} replies found, "
-                f"{total_replies_stored} replies stored in MongoDB"
+                f"{total_replies_stored} replies stored in MongoDB, "
+                f"{skipped_already_processed} comments skipped (already processed state)"
             )
 
         except Exception as e:
