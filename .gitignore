@@ -56,3 +56,4 @@ notebooks/**/*.nbconvert.ipynb
 # Generated notebook outputs
 notebooks/outputs/
 notebooks/**/outputs/
+neo4j.dump
