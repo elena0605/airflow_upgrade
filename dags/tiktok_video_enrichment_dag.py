@@ -9,7 +9,7 @@ DAG to enrich TikTokVideo nodes in Neo4j with a high-level "video summary" and
 - voice_to_text
 - video_thumbnail_description
 - video_thumbnail_keywords
-- HAS_TAG relationships (TikTokHashtag)
+- HAS_TAG relationships (TikTokHashTag)
 
 Outputs (stored on :TikTokVideo):
 - video_summary_description (<= 1000 chars)
@@ -173,7 +173,7 @@ def _fetch_video_enrichment_inputs(driver, video_id: str) -> Optional[Dict[str, 
     query = """
     MATCH (v:TikTokVideo {video_id: $video_id})
     WITH v LIMIT 1
-    OPTIONAL MATCH (v)-[:HAS_TAG]->(h:TikTokHashtag)
+    OPTIONAL MATCH (v)-[:HAS_TAG]->(h:TikTokHashTag)
     OPTIONAL MATCH (v)-[:HAS_STICKER]->(s:TikTokSticker)
     RETURN
       v.video_id AS video_id,

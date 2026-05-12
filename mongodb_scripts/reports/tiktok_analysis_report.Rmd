@@ -54,7 +54,7 @@ print(paste("Loading data from:", data_path))
   - Collected via video comments fetch (see `dags/tiktok_video_comments_dag.py` → MERGE `TikTokComment` and link to `TikTokVideo`)
   - Report CSVs used: `video_comments_stats.csv` (to be refined)
 
-- TikTokHashtag (`Hashtag` node)
+- TikTokHashTag (`Hashtag` node)
   - Extracted from `TikTokVideo` hashtags and linked with `HAS_HASHTAG` (`dags/tiktok_video_dag.py`)
 
 - TikTokSticker (`Sticker` node)
@@ -93,7 +93,7 @@ entities <- list(
   list(title = "TikTokUser", csv = "tiktok_users_flat.csv"),
   list(title = "TikTokVideo", csv = "tiktok_videos_flat.csv"),
   list(title = "TikTokComment", csv = "tiktok_video_comments_flat.csv"),
-  list(title = "TikTokHashtag", csv = "tiktok_video_hashtags_flat.csv"),
+  list(title = "TikTokHashTag", csv = "tiktok_video_hashtags_flat.csv"),
   list(title = "TikTokSticker", csv = "tiktok_video_stickers_flat.csv")
 )
 

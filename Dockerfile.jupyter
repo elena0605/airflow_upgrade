@@ -1,0 +1,10 @@
+# Lightweight Jupyter for ./notebooks — not the Airflow image.
+# Primary registry for docker-stacks (Docker Hub tags vary); pin digest in CI if you need reproducibility.
+FROM quay.io/jupyter/base-notebook:latest
+
+USER root
+COPY notebooks/requirements.txt /tmp/notebook-requirements.txt
+RUN pip install --no-cache-dir -r /tmp/notebook-requirements.txt \
+    && rm -f /tmp/notebook-requirements.txt
+
+USER ${NB_UID}

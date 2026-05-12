@@ -208,7 +208,7 @@ with DAG(
                     hashtag_description = hashtag.get("hashtag_description")
                     if hashtag_id and hashtag_name:
                         session.run("""
-                            MERGE (h:TikTokHashtag {id: $hashtag_id})
+                            MERGE (h:TikTokHashTag {id: $hashtag_id})
                             SET h.name = $hashtag_name,
                                 h.description = $hashtag_description
                             WITH h
