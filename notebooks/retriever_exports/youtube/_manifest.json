@@ -1,0 +1,27 @@
+{
+  "started_at": "2026-05-26T13:35:46.288475+00:00",
+  "finished_at": "2026-05-26T13:36:18.093030+00:00",
+  "topics": [
+    "gambling",
+    "mental health",
+    "beauty"
+  ],
+  "top_n": 10,
+  "min_score": 0.75,
+  "k": 20000,
+  "files": [
+    "top_creators.csv",
+    "count_creators_by_topic.csv",
+    "count_creators_by_content.csv",
+    "count_videos_by_topic.csv",
+    "count_videos_by_comment_summary.csv",
+    "count_videos_by_content.csv",
+    "top_videos_by_topic_engagement.csv",
+    "top_creators_by_topic_engagement.csv",
+    "example_videos.csv",
+    "comment_discussions.csv",
+    "content_videos.csv",
+    "content_top_creators.csv",
+    "unified_search.csv"
+  ]
+}

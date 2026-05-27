@@ -1,0 +1,4 @@
+theme,signal,min_score,k,video_count,sample_videos
+gambling,video_content,0.75,20000,0,[]
+mental health,video_content,0.75,20000,0,[]
+beauty,video_content,0.75,20000,0,[]
