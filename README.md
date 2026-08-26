@@ -329,12 +329,17 @@ docker compose down -v       # stop + delete DB volumes (destructive)
 
 ```
 .
-├── dags/                    # Airflow DAGs and ETL modules
+├── dags/                    # Airflow DAG definitions only
 │   ├── youtube_pipeline_dag.py
 │   ├── tiktok_pipeline_dag.py
-│   ├── youtube_etl.py
+│   └── ...
+├── helpers/                 # Shared ETL, callbacks, embeddings (not parsed as DAGs)
 │   ├── tiktok_etl.py
-│   └── api_rate_limits.py
+│   ├── youtube_etl.py
+│   ├── api_rate_limits.py
+│   ├── callbacks.py
+│   ├── tiktok_embedding_tasks.py
+│   └── youtube_embedding_tasks.py
 ├── data/
 │   └── input/               # Influencer CSV inputs
 ├── scripts/

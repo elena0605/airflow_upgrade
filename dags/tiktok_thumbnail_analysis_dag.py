@@ -19,7 +19,7 @@ from airflow import DAG  # pyright: ignore[reportMissingImports]
 from airflow.operators.python import PythonOperator  # pyright: ignore[reportMissingImports]
 from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
-from tiktok_embedding_tasks import embed_video_content_embeddings_task
+from helpers.tiktok_embedding_tasks import embed_video_content_embeddings_task
 
 logger = logging.getLogger("airflow.task")
 logger.setLevel(logging.INFO)

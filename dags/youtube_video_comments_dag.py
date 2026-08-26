@@ -3,12 +3,12 @@ from airflow import DAG  # pyright: ignore[reportMissingImports]
 from airflow.providers.standard.operators.python import PythonOperator  # pyright: ignore[reportMissingImports]
 from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
-from callbacks import task_failure_callback, task_success_callback
+from helpers.callbacks import task_failure_callback, task_success_callback
 from airflow.exceptions import AirflowFailException  # pyright: ignore[reportMissingImports]
 import logging
 import requests  # pyright: ignore[reportMissingModuleSource]
 from pymongo.errors import BulkWriteError  # pyright: ignore[reportMissingImports]
-import youtube_etl as ye
+from helpers import youtube_etl as ye
 import os
 from pymongo import UpdateOne  # pyright: ignore[reportMissingImports]
 # Get environment variables 

@@ -28,7 +28,7 @@ from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[rep
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
 from openai import OpenAI  # pyright: ignore[reportMissingImports]
 from openai import AzureOpenAI  # pyright: ignore[reportMissingImports]
-from youtube_embedding_tasks import (
+from helpers.youtube_embedding_tasks import (
     embed_comment_summary_embeddings_task,
     embed_comment_topic_embeddings_task,
     sync_comment_topics_from_mongo_task,
@@ -36,7 +36,7 @@ from youtube_embedding_tasks import (
 from pymongo.operations import UpdateOne  # pyright: ignore[reportMissingImports]
 from pymongo.errors import BulkWriteError, OperationFailure  # pyright: ignore[reportMissingImports]
 
-from callbacks import task_failure_callback, task_success_callback
+from helpers.callbacks import task_failure_callback, task_success_callback
 
 logger = logging.getLogger("airflow.task")
 logger.setLevel(logging.INFO)

@@ -26,8 +26,8 @@ from airflow import DAG  # pyright: ignore[reportMissingImports]
 from airflow.providers.standard.operators.python import PythonOperator  # pyright: ignore[reportMissingImports]
 from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
-from callbacks import task_failure_callback, task_success_callback
-from tiktok_embedding_tasks import (
+from helpers.callbacks import task_failure_callback, task_success_callback
+from helpers.tiktok_embedding_tasks import (
     embed_comment_summary_embeddings_task,
     embed_comment_topic_embeddings_task,
     sync_comment_topics_from_mongo_task,

@@ -11,7 +11,7 @@ import pickle
 import os
 import time
 from pymongo.errors import BulkWriteError, OperationFailure  # pyright: ignore[reportMissingImports]
-from api_rate_limits import fail_if_youtube_quota, youtube_quota_reason, PlatformRateLimitError
+from helpers.api_rate_limits import fail_if_youtube_quota, youtube_quota_reason, PlatformRateLimitError
 
 # Set up logging - log to airflow logs & console
 logger = logging.getLogger("airflow.task")

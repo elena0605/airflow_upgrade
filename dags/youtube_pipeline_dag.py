@@ -22,7 +22,7 @@ from airflow import DAG  # pyright: ignore[reportMissingImports]
 from airflow.providers.standard.operators.trigger_dagrun import (  # pyright: ignore[reportMissingImports]
     TriggerDagRunOperator,
 )
-from callbacks import task_failure_callback, task_success_callback
+from helpers.callbacks import task_failure_callback, task_success_callback
 
 PIPELINE_STEPS = [
     ("trigger_channel_stats", "youtube_channel_stats_dag"),

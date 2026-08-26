@@ -10,7 +10,7 @@ from airflow.exceptions import AirflowFailException  # pyright: ignore[reportMis
 from airflow.sdk import Variable      # pyright: ignore[reportMissingImports]
 from bson import ObjectId  # pyright: ignore[reportMissingImports]
 from neo4j import GraphDatabase  # pyright: ignore[reportMissingImports]
-from api_rate_limits import fail_if_tiktok_rate_limit, PlatformRateLimitError
+from helpers.api_rate_limits import fail_if_tiktok_rate_limit, PlatformRateLimitError
 
 # Variables will be accessed when needed inside functions
 # TIKTOK_CLIENT_KEY = Variable.get("TIKTOK_CLIENT_KEY")

@@ -4,12 +4,12 @@ from airflow import DAG  # pyright: ignore[reportMissingImports]
 from airflow.providers.standard.operators.python import PythonOperator  # pyright: ignore[reportMissingImports]
 from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
-from callbacks import task_failure_callback, task_success_callback
+from helpers.callbacks import task_failure_callback, task_success_callback
 from airflow.exceptions import AirflowFailException  # pyright: ignore[reportMissingImports]
 from pymongo.errors import BulkWriteError  # pyright: ignore[reportMissingImports]
 from pymongo import UpdateOne  # pyright: ignore[reportMissingImports]
 import logging
-import tiktok_etl as te
+from helpers import tiktok_etl as te
 from time import sleep
 import os
 # Set up logging
@@ -35,7 +35,7 @@ with DAG(
     "tiktok_video_comments_dag",
     default_args=default_args,
     description="DAG to fetch and store TikTok video comments",
-    schedule="0 16 * * *",
+    schedule=None,
     start_date=pendulum.datetime(2025, 2, 13, tz=local_tz),
     catchup=False,
     tags=['tiktok_comments'],

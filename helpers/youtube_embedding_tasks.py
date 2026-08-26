@@ -15,7 +15,6 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
 from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
-from openai import AzureOpenAI, OpenAI  # pyright: ignore[reportMissingImports]
 
 logger = logging.getLogger("airflow.task")
 
@@ -144,6 +143,8 @@ def batched(iterable: Iterable[Any], n: int) -> Iterator[list]:
 
 
 def build_embedding_client() -> Tuple[str, Any, str]:
+    from openai import AzureOpenAI, OpenAI  # pyright: ignore[reportMissingImports]
+
     if AZURE_OPENAI_EMBEDDING_ENDPOINT and AZURE_OPENAI_EMBEDDING_API_KEY:
         client = AzureOpenAI(
             azure_endpoint=AZURE_OPENAI_EMBEDDING_ENDPOINT,

@@ -4,12 +4,12 @@ from airflow.providers.standard.operators.python import PythonOperator  # pyrigh
 from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
 from pymongo.errors import DuplicateKeyError  # pyright: ignore[reportMissingImports]
-from callbacks import task_failure_callback, task_success_callback
+from helpers.callbacks import task_failure_callback, task_success_callback
 from airflow.exceptions import AirflowFailException  # pyright: ignore[reportMissingImports]
 import os
 import logging
-import system as sy
-import tiktok_etl as te
+from helpers import system as sy
+from helpers import tiktok_etl as te
 
 
 # Set up logging
