@@ -78,12 +78,10 @@ x-airflow-common:
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
-    - ${AIRFLOW_PROJ_DIR:-.}/notebooks:/opt/airflow/notebooks
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
-    - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
-    - ${AIRFLOW_PROJ_DIR:-.}/mongodb_scripts:/opt/airflow/mongodb_scripts  
-    - ${AIRFLOW_PROJ_DIR:-.}/neo4j_scripts:/opt/airflow/neo4j_scripts
+    - ${AIRFLOW_PROJ_DIR:-.}/data:/opt/airflow/data
+  
 
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
@@ -114,7 +112,6 @@ services:
       - "27017:27017"
     volumes:
       - mongodb-data:/data/db
-      - ${AIRFLOW_PROJ_DIR:-.}/mongodb_scripts:/opt/airflow/mongodb_scripts
     environment:
       MONGO_INITDB_ROOT_USERNAME: airflow 
       MONGO_INITDB_ROOT_PASSWORD: tiktok 
@@ -133,10 +130,14 @@ services:
       - neo4j-logs:/logs
       - neo4j-config:/config
       - neo4j-data:/data
-      - ${AIRFLOW_PROJ_DIR:-.}/neo4j-plugins:/plugins      
     environment:
       - NEO4J_AUTH=neo4j/airflowneo4j
       - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
+      # 23GB store needs a larger heap than the Docker image default (~512MB).
+      # Keep pagecache modest so heap + cache fit in Docker Desktop's ~8GB VM.
+      - NEO4J_server_memory_heap_initial__size=3G
+      - NEO4J_server_memory_heap_max__size=3G
+      - NEO4J_server_memory_pagecache_size=512M
     ports:
       - "7474:7474" # HTTP port
       - "7687:7687" # Bolt protocol port (for connecting to Neo4j)
@@ -150,11 +151,14 @@ services:
           "neo4j",
           "-p",
           "airflowneo4j",
+          "-d",
+          "neo4j",
           "RETURN 1",
         ]
       interval: 30s
-      retries: 3
-      start_period: 10s
+      timeout: 15s
+      retries: 10
+      start_period: 90s
 
   airflow-apiserver:
     <<: *airflow-common
@@ -204,20 +208,20 @@ services:
         condition: service_completed_successfully
 
 
-  # airflow-triggerer:
-  #   <<: *airflow-common
-  #   command: triggerer
-  #   healthcheck:
-  #     test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 5
-  #     start_period: 30s
-  #   restart: always
-  #   depends_on:
-  #     <<: *airflow-common-depends-on
-  #     airflow-init:
-  #       condition: service_completed_successfully
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
 
   airflow-init:
     <<: *airflow-common
@@ -348,39 +352,7 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
-  jupyter:
-    build:
-      context: .
-      dockerfile: Dockerfile.jupyter
-    container_name: jupyter
-    profiles:
-      - notebook
-    ports:
-      - "8888:8888"
-    volumes:
-      - ${AIRFLOW_PROJ_DIR:-.}/notebooks:/home/jovyan/work
-      - ${AIRFLOW_PROJ_DIR:-.}/.env:/home/jovyan/.env:ro
-    env_file:
-      - .env
-    environment:
-      PYTHONUNBUFFERED: "1"
-      JUPYTER_ENABLE_LAB: "yes"
-      DOTENV_PATH: /home/jovyan/.env
-    command:
-      - bash
-      - -lc
-      - >
-        start-notebook.sh
-        --ip=0.0.0.0
-        --port=8888
-        --ServerApp.token=''
-        --ServerApp.disable_check_xsrf=True
-        --ServerApp.allow_origin='*'
-        --ServerApp.root_dir=/home/jovyan/work
-    restart: unless-stopped
-    depends_on:
-      - mongodb
-      - neo4j
+  
 
 volumes:
   postgres-db-volume:

@@ -4,6 +4,7 @@ from airflow.providers.standard.operators.python import PythonOperator  # pyrigh
 from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
 from callbacks import task_failure_callback, task_success_callback
+from airflow.exceptions import AirflowFailException  # pyright: ignore[reportMissingImports]
 from pymongo.errors import BulkWriteError  # pyright: ignore[reportMissingImports]
 import os
 import logging
@@ -30,8 +31,8 @@ default_args = {
 }
 
 # File and directories paths
-INPUT_PATH = "/opt/airflow/dags/influencers.csv"
-OUTPUT_DIR = "/opt/airflow/dags/data/tiktok"
+INPUT_PATH = "/opt/airflow/data/input/tiktok_influencers.csv"
+OUTPUT_DIR = "/opt/airflow/data/output/tiktok"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
@@ -84,8 +85,9 @@ with DAG(
                     logger.warning(f"No data found for username: {username}")
                     continue
                 
-                # Convert DataFrame to list of dictionaries
-                videos = user_data_list_df.to_dict('records')
+                # Convert DataFrame to list of dictionaries (NaN is not valid BSON)
+                videos = user_data_list_df.where(pd.notnull(user_data_list_df), None).to_dict('records')
+                logger.info(f"Preparing to store {len(videos)} videos for {username}")
                 
                 # Ensure all videos have the transformed_to_neo4j flag
                 for video in videos:
@@ -106,6 +108,8 @@ with DAG(
                              # Skip to next username
                     logger.info(f"Handled duplicate videos for {username}")
 
+            except AirflowFailException:
+                raise
             except Exception as user_error:
                 logger.error(f"Error processing username {username}: {str(user_error)}")
                 continue

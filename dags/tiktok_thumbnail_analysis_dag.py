@@ -19,6 +19,7 @@ from airflow import DAG  # pyright: ignore[reportMissingImports]
 from airflow.operators.python import PythonOperator  # pyright: ignore[reportMissingImports]
 from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
+from tiktok_embedding_tasks import embed_video_content_embeddings_task
 
 logger = logging.getLogger("airflow.task")
 logger.setLevel(logging.INFO)
@@ -31,7 +32,7 @@ MONGO_BATCH_WRITE_CHUNK = int(os.getenv("MONGO_BATCH_WRITE_CHUNK", "100"))  # do
 NEO4J_CHUNK = int(os.getenv("NEO4J_CHUNK", "100"))                # nodes per transaction to Neo4j
 POLL_INTERVAL = int(os.getenv("OPENAI_POLL_INTERVAL", "10"))     # seconds between polling batch status
 MAX_THUMBNAIL_FETCH = int(os.getenv("TIKTOK_MAX_THUMBNAIL_FETCH", "4000"))  # cap fresh oEmbed fetches due to URL expiry
-TMP_DIR = Path(os.getenv("OPENAI_BATCH_TMP", "/opt/airflow/dags/tmp_openai_batches")) / "tiktok"
+TMP_DIR = Path(os.getenv("OPENAI_BATCH_TMP", "/opt/airflow/data/tmp_openai_batches")) / "tiktok_thumbnail"
 TMP_DIR.mkdir(parents=True, exist_ok=True)
 PROGRESS_PATH = TMP_DIR / "tiktok_t2_progress.json"
 
@@ -43,6 +44,7 @@ AIRFLOW_ENV = os.getenv("AIRFLOW_ENV", "development")
 
 DB_NAME = "rbl" if AIRFLOW_ENV == "production" else "airflow_db"
 COLLECTION_NAME = os.getenv("MONGO_COLLECTION", "tiktok_user_video")
+NEO4J_CONN_ID = "neo4j_prod" if AIRFLOW_ENV == "production" else "neo4j_default"
 
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "o4-mini")
 
@@ -1091,7 +1093,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id="tiktok_openai_batch_pipeline",
+    dag_id="tiktok_thumbnail_openai_analysis_dag",
     default_args=default_args,
     description="Stage TikTok thumbnails -> OpenAI Batch -> parse -> bulk update Mongo + Neo4j",
     schedule=None,
@@ -1116,6 +1118,11 @@ with DAG(
         python_callable=parse_outputs_and_update,
     )
 
-    # Full pipeline: clean up old files -> create batches -> submit to OpenAI -> parse and update DBs
-    t1 >> t2 >> t3
-    #t2 >> t3
+    t4 = PythonOperator(
+        task_id="embed_video_content_embeddings",
+        python_callable=embed_video_content_embeddings_task,
+        op_kwargs={"neo4j_conn_id": NEO4J_CONN_ID},
+    )
+
+    # Full pipeline: stage -> OpenAI batch -> parse/update -> content embeddings
+    t1 >> t2 >> t3 >> t4

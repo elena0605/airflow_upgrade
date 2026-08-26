@@ -5,6 +5,7 @@ from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[rep
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
 from pymongo.errors import DuplicateKeyError  # pyright: ignore[reportMissingImports]
 from callbacks import task_failure_callback, task_success_callback
+from airflow.exceptions import AirflowFailException  # pyright: ignore[reportMissingImports]
 import os
 import logging
 import system as sy
@@ -29,13 +30,13 @@ default_args = {
 }
 
 
-INPUT_PATH = "/opt/airflow/dags/influencers.csv"
-OUTPUT_DIR = "/opt/airflow/dags/data/tiktok"
+INPUT_PATH = "/opt/airflow/data/input/tiktok_influencers.csv"
+OUTPUT_DIR = "/opt/airflow/data/output/tiktok"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 with DAG(
-    "tiktok_dag",
+    "tiktok_user_info_dag",
     default_args=default_args,
     description="A simple DAG to fetch TikTok user info",
     schedule=None,
@@ -80,6 +81,8 @@ with DAG(
                     logger.info(f"Successfully fetched data for username: {username}")
                 else:
                     logger.warning(f"No data returned for username: {username}")
+            except AirflowFailException:
+                raise
             except Exception as e:
                 logger.error(f"Error fetching data for username {username}: {e}", exc_info=True)
                 continue  # Continue with other usernames instead of failing the entire task

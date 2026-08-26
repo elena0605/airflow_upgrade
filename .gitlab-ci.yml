@@ -1,0 +1,72 @@
+# GitLab CI/CD: validate on every push, deploy on default branch.
+#
+# Required CI/CD variables (Settings → CI/CD → Variables):
+#
+#   DEPLOY_HOST          — hostname or IP of the server running Docker
+#   DEPLOY_USER          — SSH user on that server
+#   DEPLOY_PATH          — absolute path to this repo on the server (e.g. /opt/airflow_upgrade)
+#   SSH_PRIVATE_KEY      — private key for DEPLOY_USER (Type: File or Variable, masked)
+#
+# Optional:
+#   DEPLOY_BRANCH        — branch to deploy (default: main)
+#   SKIP_DEPLOY          — set to "true" to run validate/build only (no deploy)
+#
+# On the deploy host (one-time):
+#   1. Clone this repo to DEPLOY_PATH
+#   2. Copy .env.example → .env and configure secrets
+#   3. Configure Airflow Variables & Connections (see README.md)
+#   4. Install Docker + Docker Compose and a GitLab Runner (shell) OR allow SSH from GitLab
+
+stages:
+  - validate
+  - deploy
+
+default:
+  interruptible: true
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+validate:
+  stage: validate
+  image: docker:24
+  services:
+    - name: docker:24-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  before_script:
+    - apk add --no-cache python3 py3-pip
+  script:
+    - python3 -m compileall -q dags/
+    - docker compose config -q
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+# Deploy via SSH: pull latest code on the host and run scripts/deploy.sh
+deploy:
+  stage: deploy
+  image: alpine:3.20
+  before_script:
+    - apk add --no-cache openssh-client git
+    - eval "$(ssh-agent -s)"
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+  script:
+    - |
+      ssh -o StrictHostKeyChecking=accept-new "${DEPLOY_USER}@${DEPLOY_HOST}" \
+        "cd '${DEPLOY_PATH}' && DEPLOY_BRANCH='${DEPLOY_BRANCH:-main}' bash scripts/deploy.sh"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $SKIP_DEPLOY != "true"
+      when: on_success
+    - when: never
+  environment:
+    name: production
+    url: http://${DEPLOY_HOST}:8080

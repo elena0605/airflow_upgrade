@@ -29,7 +29,7 @@ default_args = {
 }
 
 # Files and directories paths
-INPUT_PATH = "/opt/airflow/dags/youtube_influencers.csv"
+INPUT_PATH = "/opt/airflow/data/input/youtube_influencers.csv"
 
 with DAG(
     "youtube_channel_videos",

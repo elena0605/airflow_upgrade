@@ -5,12 +5,12 @@ from airflow.providers.standard.operators.python import PythonOperator  # pyrigh
 from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
 from callbacks import task_failure_callback, task_success_callback
+from airflow.exceptions import AirflowFailException  # pyright: ignore[reportMissingImports]
 from pymongo.errors import BulkWriteError  # pyright: ignore[reportMissingImports]
 from pymongo import UpdateOne  # pyright: ignore[reportMissingImports]
 import logging
 import tiktok_etl as te
 from time import sleep
-from requests.exceptions import HTTPError  # pyright: ignore[reportMissingModuleSource]
 import os
 # Set up logging
 logger = logging.getLogger("airflow.task")
@@ -126,14 +126,8 @@ with DAG(
                     videos_processed += 1
                     wait_time = 2  # Reset wait time after success
 
-                except HTTPError as e:
-                    if e.response.status_code == 429:  # Rate limit hit
-                        logger.warning(f"Global rate limit hit while processing video {video_id}. Stopping fetch early.")
-                        break
-                    else:
-                        logger.error(f"Error processing comments for video {video_id}: {e}", exc_info=True)
-                        continue
-
+                except AirflowFailException:
+                    raise
                 except Exception as e:
                     logger.error(f"Error processing comments for video {video_id}: {e}", exc_info=True)
                     continue
@@ -209,6 +203,11 @@ with DAG(
 
             logger.info("Starting comment transformation from MongoDB to Neo4j")
 
+            def run_write(session_obj, tx_func):
+                if hasattr(session_obj, "execute_write"):
+                    return session_obj.execute_write(tx_func)
+                return session_obj.write_transaction(tx_func)
+
             try:
                 # Reuse Neo4j session for all batches to reduce connection overhead
                 with driver.session() as neo4j_session:
@@ -240,7 +239,8 @@ with DAG(
                                 )
 
                             # Insert batch into Neo4j using transaction
-                            neo4j_session.write_transaction(
+                            run_write(
+                                neo4j_session,
                                 lambda tx: tx.run(neo4j_query, comments=neo4j_batch)
                             )
                             
@@ -274,7 +274,8 @@ with DAG(
                                 )
                             )
 
-                        neo4j_session.write_transaction(
+                        run_write(
+                            neo4j_session,
                             lambda tx: tx.run(neo4j_query, comments=neo4j_batch)
                         )
                         comments_processed += len(batch_comments)
@@ -310,5 +311,5 @@ with DAG(
 
     # Set task dependencies
     fetch_and_store_comments_task >> transform_comments_to_graph_task 
-    #transform_comments_to_graph_task 
+    
     

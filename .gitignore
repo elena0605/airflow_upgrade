@@ -22,8 +22,6 @@ plugins/__pycache__/
 .env
 environment_variables.json
 
-# MongoDB analysis output files
-mongodb_scripts/output/
 
 # macOS system file
 .DS_Store
@@ -31,29 +29,9 @@ mongodb_scripts/output/
 airflow_backup.sql
 *.sql
 
-# Neo4j scripts
-neo4j_scripts/.env
-neo4j_scripts/venv/
-neo4j_scripts/__pycache__/
-neo4j_scripts/*.pyc
-neo4j_scripts/*.log
-neo4j_scripts/*.tmp
-neo4j_scripts/.DS_Store
-neo4j_scripts/*.csv
-neo4j_scripts/*.json
-neo4j_scripts/csv_files/
-
 
 #OpenAI Batch files
-tmp_openai_batches/
+data/tmp_openai_batches/
 
-#notebooks
-# Jupyter notebook artifacts
-**/.ipynb_checkpoints/
-notebooks/**/.DS_Store
-notebooks/**/*.nbconvert.ipynb
 
-# Generated notebook outputs
-notebooks/outputs/
-notebooks/**/outputs/
-neo4j.dump
+

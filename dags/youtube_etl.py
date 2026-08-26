@@ -11,6 +11,7 @@ import pickle
 import os
 import time
 from pymongo.errors import BulkWriteError, OperationFailure  # pyright: ignore[reportMissingImports]
+from api_rate_limits import fail_if_youtube_quota, youtube_quota_reason, PlatformRateLimitError
 
 # Set up logging - log to airflow logs & console
 logger = logging.getLogger("airflow.task")
@@ -48,13 +49,16 @@ def get_channels_statistics(channel_id):
 
     try:
         response = requests.get(url)
-        response.raise_for_status()  
+        fail_if_youtube_quota(response, context=f"fetching channel stats for {channel_id}")
+        response.raise_for_status()
         data = response.json()
         logger.debug(f"Received data for channel ID: {channel_id} - {data}")
 
+    except PlatformRateLimitError:
+        raise
     except requests.exceptions.HTTPError as http_err:
         logger.warning(f"HTTP error occurred: {http_err}")
-        return None 
+        return None
     except requests.exceptions.RequestException as req_err:
           logger.warning(f"Request failed for channel ID: {channel_id} - {req_err}")
           return None
@@ -105,15 +109,18 @@ def get_video_details(video_ids):
         url = f'https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet,topicDetails&id={",".join(chunk)}&key={youtube_api_key}'
         try:
             response = requests.get(url)
+            fail_if_youtube_quota(response, context="fetching video details")
             response.raise_for_status()
             data = response.json()
-            
+
             for item in data.get('items', []):
                 video_details[item['id']] = {
                     'statistics': item.get('statistics', {}),
                     'topicDetails': item.get('topicDetails', {}),
                     'snippet': item.get('snippet', {})
                 }
+        except PlatformRateLimitError:
+            raise
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching video details: {e}")
             raise AirflowFailException(f"Failed to fetch video details: {e}")
@@ -134,7 +141,11 @@ def get_videos_by_date(channel_id, start_date, end_date):
             url += f'&pageToken={next_page_token}'
      try:
         response = requests.get(url)
-        response.raise_for_status()  
+        fail_if_youtube_quota(
+            response,
+            context=f"fetching videos for channel {channel_id}",
+        )
+        response.raise_for_status()
         data = response.json()
         logger.debug(f"Fetched {len(data.get('items', []))} videos from page.")
 
@@ -166,6 +177,8 @@ def get_videos_by_date(channel_id, start_date, end_date):
             logger.info("No more pages to fetch.")
             break
 
+     except PlatformRateLimitError:
+            raise
      except requests.exceptions.HTTPError as http_err:
             logger.error(f"HTTP error occurred: {http_err}")
             raise AirflowFailException(f"HTTP error fetching videos for channel {channel_id}: {http_err}")
@@ -260,7 +273,11 @@ def get_top_level_comments(video_id, order_by='relevance'):
             params['pageToken'] = next_page_token
         try:
             response = requests.get(url, params=params)
-            response.raise_for_status() 
+            fail_if_youtube_quota(
+                response,
+                context=f"fetching comments for video_id {video_id}",
+            )
+            response.raise_for_status()
 
             data = response.json()
             logger.debug(f"Fetched {len(data.get('items', []))} comments for video_id: {video_id}")
@@ -294,7 +311,16 @@ def get_top_level_comments(video_id, order_by='relevance'):
             if not next_page_token:
                 logger.info(f"Completed fetching comments for video_id: {video_id}")
                 break
+        except PlatformRateLimitError:
+            raise
         except requests.exceptions.HTTPError as e:
+            quota_reason = youtube_quota_reason(e.response)
+            if quota_reason:
+                raise PlatformRateLimitError(
+                    f"YouTube API quota/rate limit hit ({quota_reason}) while fetching "
+                    f"comments for video_id {video_id}. Daily quota resets at midnight "
+                    "Pacific Time. Re-run after reset; completed records remain checkpointed in Mongo."
+                ) from e
             if e.response.status_code == 403:
                 try:
                     error_json = e.response.json()
@@ -319,258 +345,6 @@ def get_top_level_comments(video_id, order_by='relevance'):
     logger.debug(f"Total comments fetched for video_id: {video_id}: {len(comments)}")     
     return comments
 
-def get_replies(parent_id, video_id, max_replies_per_video=1000, already_fetched_for_video=0):
-    youtube_api_key = Variable.get("YOUTUBE_API_KEY")
-    url = "https://www.googleapis.com/youtube/v3/comments"
-    params = {
-        'part': 'snippet',
-        'parentId': parent_id,
-        'maxResults': 100,
-        'key': youtube_api_key,
-        'textFormat': 'plainText'
-    }
-
-    replies = []
-    next_page_token = None
-    remaining_budget = max_replies_per_video - already_fetched_for_video
-
-    if remaining_budget <= 0:
-        logger.info(
-            f"Reached maximum {max_replies_per_video} replies limit for video_id: {video_id}. "
-            f"Skipping fetch for comment_id: {parent_id}"
-        )
-        return replies
-
-    while True:
-        if next_page_token:
-            params['pageToken'] = next_page_token
-        try:
-            logger.debug(f"Starting to fetch replies for a comment id: {parent_id}")
-            response = requests.get(url, params=params)
-            response.raise_for_status() 
-            data = response.json()
-
-            for item in data.get('items', []):
-                reply = {
-                    'comment_id': item['id'],
-                    'parent_id': item['snippet']['parentId'],
-                    'video_id': video_id,
-                    'channel_id': item['snippet']['channelId'],
-                    'authorDisplayName': item['snippet']['authorDisplayName'],
-                    'authorProfileImageUrl': item['snippet']['authorProfileImageUrl'],
-                    'authorChannelUrl': item['snippet']['authorChannelUrl'],
-                    'authorChannelId': item['snippet']['authorChannelId']['value'],
-                    'canReply': None,
-                    'totalReplyCount': None,             
-                    'textDisplay': item['snippet']['textDisplay'],
-                    'textOriginal': item['snippet']['textOriginal'],                  
-                    'canRate': item['snippet']['canRate'],
-                    'viewerRating': item['snippet']['viewerRating'],
-                    'likeCount': item['snippet']['likeCount'],
-                    'publishedAt': item['snippet']['publishedAt'],
-                    'updatedAt': item['snippet']['updatedAt'],
-                   
-                }                
-                replies.append(reply)
-                if len(replies) >= remaining_budget:
-                    logger.info(
-                        f"Reached maximum {max_replies_per_video} replies limit for video_id: {video_id} "
-                        f"while processing comment_id: {parent_id}"
-                    )
-                    return replies
-                # nested_replies = get_replies(reply['reply_id'])
-                # replies.extend(nested_replies)
-            
-            next_page_token = data.get('nextPageToken')
-            if not next_page_token:
-                break
-            
-
-        except requests.exceptions.HTTPError as http_err:
-            logger.error(f"HTTP error occurred: {http_err}")
-            raise AirflowFailException(f"HTTP error while fetching replies for comment with comment_id {parent_id}: {http_err}")
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed: {e}")
-            raise  AirflowFailException(f"Network error while fetching replies for comment with comment_id: {parent_id}: {e}")    
-
-    logger.debug(f"Replies were fetched for comment: {parent_id}")             
-    return replies
 
 
 
-def get_youtube_credentials():
-    """
-    Get or refresh OAuth 2.0 credentials
-    """
-    creds = None
-    token_path = '/opt/airflow/config/credentials/token.pickle'
-    
-    if os.path.exists(token_path):
-        with open(token_path, 'rb') as token:
-            creds = pickle.load(token)
-            
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())  # pyright: ignore[reportUndefinedVariable]
-            except Exception as e:
-                logger.error(f"Failed to refresh token: {e}")
-                raise AirflowFailException("Token refresh failed")
-        else:
-            raise AirflowFailException(
-                "No valid credentials found. Please run the authentication setup script."
-            )
-            
-    return creds
-
-# def get_captions(video_id):
-#     """
-#     Fetch captions using OAuth authentication
-#     """
-#     creds = get_youtube_credentials()
-    
-#     # First, get the caption tracks available for the video
-#     captions_url = "https://www.googleapis.com/youtube/v3/captions"
-#     params = {
-#         'part': 'snippet',
-#         'videoId': video_id     
-#     }
-
-#     headers = {
-#         'Authorization': f'Bearer {creds.token}',
-#         'Accept': 'application/json'
-#     }
-
-#     captions_list = []
-    
-#     try:
-#         # Get list of available captions
-#         response = requests.get(captions_url, params=params, headers=headers)
-#         response.raise_for_status()
-#         data = response.json() 
-
-#         logger.info(f"Available captions for video {video_id}: {data}") 
-
-#         for item in data.get('items', []):
-#             caption_info = {
-#                 'caption_id': item['id'],
-#                 'video_id': video_id,
-#                 'language': item['snippet']['language'],
-#                 'language_name': item['snippet'].get('name', ''),
-#                 'track_kind': item['snippet']['trackKind'],
-#                 'is_auto': item['snippet']['trackKind'] == 'ASR',
-#                 'is_draft': item['snippet'].get('isDraft', False),
-#                 'fetched_time': datetime.now()
-#             }
-            
-#             # Get the actual caption content
-#             caption_download_url = f"{captions_url}/{item['id']}"
-#             download_params = {
-#                 'tfmt': 'srt'
-                
-                  
-#             }
-#             download_headers = {
-#                 'Authorization': f'Bearer {creds.token}',
-#                 'Accept': 'application/octet-stream'
-#             }
-            
-#             try:
-#                 caption_response = requests.get(
-#                     caption_download_url, 
-#                     params=download_params,
-#                     headers=download_headers,
-#                     stream=True 
-#                 )
-#                 logger.info(f"Caption download response status: {caption_response.status_code}")
-#                 logger.info(f"Caption download response headers: {caption_response.headers}")
-#                 if caption_response.status_code == 403:
-#                     logger.error(f"Full error response: {caption_response.text}")
-
-#                 caption_response.raise_for_status()
-#                 caption_info['caption_content'] = caption_response.content.decode('utf-8')
-                
-#             except requests.exceptions.RequestException as e:
-#                 logger.error(f"Failed to download caption content: {e}")
-#                 caption_info['caption_content'] = None
-                
-#             captions_list.append(caption_info)
-            
-#         return captions_list
-        
-#     except Exception as e:
-#         logger.error(f"Failed to fetch captions: {e}")
-#         raise AirflowFailException(f"Caption fetching failed: {e}")
-  
-
-def get_captions(video_id):
-    """
-    Fetch captions following YouTube API documentation
-    """
-    creds = get_youtube_credentials()
-    
-    # Step 1: Get caption track ID
-    list_url = "https://www.googleapis.com/youtube/v3/captions"
-    list_params = {
-        'part': 'snippet',
-        'videoId': video_id
-    }
-    headers = {
-        'Authorization': f'Bearer {creds.token}'
-    }
-    
-    try:
-        # Get list of available captions
-        response = requests.get(list_url, params=list_params, headers=headers)
-        response.raise_for_status()
-        data = response.json()
-        
-        # Find English caption or auto-generated caption
-        caption_id = None
-        for item in data.get('items', []):
-            if item['snippet']['language'] == 'en':
-                caption_id = item['id']
-                break
-        
-        if not caption_id:
-            logger.info(f"No English captions found for video {video_id}")
-            return None
-            
-        # Step 2: Download the caption using the ID
-        download_url = f"https://www.googleapis.com/youtube/v3/captions/{caption_id}"
-        download_params = {
-            'tfmt': 'srt'  # Request in SubRip format
-        }
-        download_headers = {
-            'Authorization': f'Bearer {creds.token}',
-            'Accept': 'application/octet-stream'  # As specified in docs
-        }
-        
-        caption_response = requests.get(
-            download_url,
-            params=download_params,
-            headers=download_headers
-        )
-        caption_response.raise_for_status()
-        
-        return {
-            'caption_id': caption_id,
-            'video_id': video_id,
-            'language': 'en',
-            'caption_content': caption_response.content.decode('utf-8'),
-            'fetched_time': datetime.now()
-        }
-        
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 403:
-            logger.error(f"Permission denied for video {video_id}: {e.response.text}")
-        elif e.response.status_code == 404:
-            logger.error(f"Caption not found for video {video_id}")
-        else:
-            logger.error(f"HTTP error occurred: {e}")
-        return None
-        
-    except Exception as e:
-        logger.error(f"Failed to fetch captions: {e}")
-        return None

@@ -10,6 +10,7 @@ from airflow.exceptions import AirflowFailException  # pyright: ignore[reportMis
 from airflow.sdk import Variable      # pyright: ignore[reportMissingImports]
 from bson import ObjectId  # pyright: ignore[reportMissingImports]
 from neo4j import GraphDatabase  # pyright: ignore[reportMissingImports]
+from api_rate_limits import fail_if_tiktok_rate_limit, PlatformRateLimitError
 
 # Variables will be accessed when needed inside functions
 # TIKTOK_CLIENT_KEY = Variable.get("TIKTOK_CLIENT_KEY")
@@ -142,7 +143,7 @@ def tiktok_get_user_info(username: str, output_dir:str, **context):
         # request
         response = requests.request("POST", url, headers = headers, params = params ,json = body,  timeout=10)
         logger.info("Call is done...")
-        # logger.info(f"TikTok API raw response: {response.text}")
+        fail_if_tiktok_rate_limit(response, context=f"fetching user info for {username}")
 
         # Parse the response as JSON
         resp_json = response.json()
@@ -170,7 +171,14 @@ def tiktok_get_user_info(username: str, output_dir:str, **context):
 
         return df
 
+    except PlatformRateLimitError:
+        raise
     except requests.exceptions.HTTPError as http_err:
+        if http_err.response is not None and http_err.response.status_code == 429:
+            fail_if_tiktok_rate_limit(
+                http_err.response,
+                context=f"fetching user info for {username}",
+            )
         logger.info("TIKTOK request requests.exceptions.HTTPError")
         # Print detailed information about the error
         logger.info(f"HTTP error occurred: {http_err}", exc_info=True)
@@ -223,13 +231,10 @@ def tiktok_get_video_comments(video_id):
 
             logger.info(f"Fetching comments for video {video_id} with cursor {cursor}")
             response = requests.post(url, headers=headers, params=params, json=body)
-            # Check for rate limit before raising other status errors
-            if response.status_code == 429:
-                logger.warning("Rate limit reached")
-                raise requests.exceptions.HTTPError(
-                    "429 Client Error: Too Many Requests", 
-                    response=response
-                )
+            fail_if_tiktok_rate_limit(
+                response,
+                context=f"fetching comments for video {video_id}",
+            )
             response.raise_for_status()
             resp = response.json()
 
@@ -261,7 +266,7 @@ def tiktok_get_video_comments(video_id):
 
             # Update cursor for next batch
             cursor = resp.get("data", {}).get("cursor")
-            if not cursor:
+            if cursor is None:
                 logger.info(f"No cursor found for video {video_id}")
                 break
 
@@ -270,10 +275,14 @@ def tiktok_get_video_comments(video_id):
                 logger.info(f"Reached 1000 comment limit for video {video_id}")
                 break
 
+        except PlatformRateLimitError:
+            raise
         except requests.exceptions.HTTPError as http_err:
-            if http_err.response.status_code == 429:
-                # Let the calling function handle the rate limit
-                raise
+            if http_err.response is not None and http_err.response.status_code == 429:
+                fail_if_tiktok_rate_limit(
+                    http_err.response,
+                    context=f"fetching comments for video {video_id}",
+                )
             logger.error(f"HTTP error occurred while fetching comments: {http_err}")
             return None
             
@@ -315,6 +324,7 @@ def tiktok_get_user_video_info(username: str, **context):
     for start, end in date_ranges:
         logger.info(f"Requesting videos for {username} from {start} to {end}")
         cursor = 0
+        search_id = ""
         has_more = True
 
         while has_more:
@@ -325,23 +335,37 @@ def tiktok_get_user_video_info(username: str, **context):
                 "max_count": 100,
                 "start_date": start,
                 "end_date": end,
-                "cursor": cursor
+                "cursor": cursor,
             }
+            # TikTok requires search_id from the first page to fetch subsequent pages.
+            if search_id:
+                body["search_id"] = search_id
 
             try:
                 response = requests.post(url, headers=headers, params=params, json=body, timeout=60)
+                fail_if_tiktok_rate_limit(
+                    response,
+                    context=f"fetching videos for {username} from {start} to {end}",
+                )
                 response.raise_for_status()
                 resp = response.json()
 
-                logger.info(f"Received response for {username}: {json.dumps(resp, indent=2)}")
+                data = resp.get("data") or {}
+                videos = data.get("videos") or []
+                next_cursor = data.get("cursor")
+                has_more = bool(data.get("has_more", False))
+                search_id = data.get("search_id") or search_id
 
-                videos = resp.get("data", {}).get("videos", [])
-                cursor = resp.get("data", {}).get("cursor", None)
-                if cursor is None:
-                    logger.warning(f"No cursor returned. Stopping pagination for {username} from {start} to {end}.")
-                    break
-                has_more = resp.get("data", {}).get("has_more", False)
-                search_id = resp.get("data", {}).get("search_id", "")
+                logger.info(
+                    "Received %d videos for %s from %s to %s (cursor=%s, has_more=%s, search_id=%s)",
+                    len(videos),
+                    username,
+                    start,
+                    end,
+                    next_cursor,
+                    has_more,
+                    search_id,
+                )
 
                 for video in videos:
                     video_id = video.get("id")
@@ -352,13 +376,14 @@ def tiktok_get_user_video_info(username: str, **context):
                         oembed_response.raise_for_status()
                         oembed_data = oembed_response.json()
                     except requests.exceptions.RequestException as oe:
-                        logger.warning(f"oEmbed request failed for {tiktok_url}: {oe}")   
+                        logger.warning(f"oEmbed request failed for {tiktok_url}: {oe}")
+                    create_ts = video.get("create_time") or 0
                     extracted_video = {
                         "search_id": search_id,
                         "username": username,
                         "video_id": video.get("id"),
                         "video_description": video.get("video_description"),
-                        "create_time": datetime.fromtimestamp(video.get("create_time")).strftime('%Y-%m-%d'),
+                        "create_time": datetime.fromtimestamp(create_ts).strftime('%Y-%m-%d'),
                         "region_code": video.get("region_code"),
                         "share_count": video.get("share_count"),
                         "view_count": video.get("view_count"),
@@ -375,27 +400,74 @@ def tiktok_get_user_video_info(username: str, **context):
                         "video_mention_list": video.get("video_mention_list"),
                         "video_label": video.get("video_label"),
                         "sticker_info_list": video.get("sticker_info_list"),
-                        "effect_info_list": video.get("effect_info_list"), 
+                        "effect_info_list": video.get("effect_info_list"),
                         "video_tag": video.get("video_tag"),
                         "fetched_time": datetime.now(),
                         "video_title": oembed_data.get("title"),
                         "video_author_url": oembed_data.get("author_url"),
                         "video_thumbnail_url": oembed_data.get("thumbnail_url")
                     }
-                    logger.info(f"Extracted video: {extracted_video}")
+                    logger.info(f"Extracted video_id={extracted_video['video_id']} for {username}")
                     all_video_data.append(extracted_video)
-                    logger.info(f"All video data: {all_video_data}")
-                    
-            except requests.exceptions.HTTPError as http_err:
-                logger.error(f"HTTP error occurred: {http_err}", exc_info=True)
-                raise
-            except requests.exceptions.RequestException as err:
-                logger.error(f"Other error occurred: {err}", exc_info=True)
-                raise
-            except Exception as e:
-                logger.error(f"An unexpected error occurred: {e}", exc_info=True)
-                raise
 
+                if not has_more or next_cursor is None:
+                    if has_more and next_cursor is None:
+                        logger.warning(
+                            "has_more=true but no cursor returned. Stopping pagination for %s from %s to %s.",
+                            username,
+                            start,
+                            end,
+                        )
+                    break
+                cursor = next_cursor
+
+            except PlatformRateLimitError:
+                raise
+            except requests.exceptions.HTTPError as http_err:
+                if http_err.response is not None and http_err.response.status_code == 429:
+                    fail_if_tiktok_rate_limit(
+                        http_err.response,
+                        context=f"fetching videos for {username} from {start} to {end}",
+                    )
+                # Keep videos already collected for this username instead of aborting the whole fetch.
+                error_body = ""
+                try:
+                    error_body = http_err.response.text[:1000] if http_err.response is not None else ""
+                except Exception:
+                    error_body = ""
+                logger.error(
+                    "HTTP error fetching videos for %s from %s to %s (cursor=%s): %s %s",
+                    username,
+                    start,
+                    end,
+                    cursor,
+                    http_err,
+                    error_body,
+                    exc_info=True,
+                )
+                break
+            except requests.exceptions.RequestException as err:
+                logger.error(
+                    "Request error fetching videos for %s from %s to %s: %s",
+                    username,
+                    start,
+                    end,
+                    err,
+                    exc_info=True,
+                )
+                break
+            except Exception as e:
+                logger.error(
+                    "Unexpected error fetching videos for %s from %s to %s: %s",
+                    username,
+                    start,
+                    end,
+                    e,
+                    exc_info=True,
+                )
+                break
+
+    logger.info("Collected %d videos for %s", len(all_video_data), username)
     df = pd.DataFrame(all_video_data)
     return df
 

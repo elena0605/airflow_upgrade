@@ -27,6 +27,11 @@ from airflow.providers.standard.operators.python import PythonOperator  # pyrigh
 from airflow.providers.mongo.hooks.mongo import MongoHook  # pyright: ignore[reportMissingImports]
 from airflow.providers.neo4j.hooks.neo4j import Neo4jHook  # pyright: ignore[reportMissingImports]
 from callbacks import task_failure_callback, task_success_callback
+from tiktok_embedding_tasks import (
+    embed_comment_summary_embeddings_task,
+    embed_comment_topic_embeddings_task,
+    sync_comment_topics_from_mongo_task,
+)
 from openai import AzureOpenAI  # pyright: ignore[reportMissingImports]
 from openai import OpenAI  # pyright: ignore[reportMissingImports]
 from pymongo.operations import UpdateOne  # pyright: ignore[reportMissingImports]
@@ -38,6 +43,7 @@ local_tz = pendulum.timezone("Europe/Amsterdam")
 airflow_env = os.getenv("AIRFLOW_ENV", "development")
 mongo_conn_id = "mongo_prod" if airflow_env == "production" else "mongo_default"
 mongo_db_name = "rbl" if airflow_env == "production" else "airflow_db"
+mongo_videos_collection = os.getenv("MONGO_COLLECTION", "tiktok_user_video")
 neo4j_conn_id = "neo4j_prod" if airflow_env == "production" else "neo4j_default"
 
 CHUNK_SIZE = int(os.getenv("TTK_COMMENT_ANALYSIS_CHUNK_SIZE", "100"))
@@ -54,7 +60,7 @@ MONGO_READ_MAX_RETRIES = int(os.getenv("TTK_COMMENT_MONGO_READ_MAX_RETRIES", "8"
 MONGO_WRITE_MAX_RETRIES = int(os.getenv("TTK_COMMENT_MONGO_WRITE_MAX_RETRIES", "8"))
 MONGO_THROTTLE_MIN_SLEEP_SECONDS = float(os.getenv("TTK_COMMENT_MONGO_THROTTLE_MIN_SLEEP_SECONDS", "1.0"))
 
-TMP_DIR = Path(os.getenv("OPENAI_BATCH_TMP", "/opt/airflow/dags/tmp_openai_batches")) / "tiktok_comments"
+TMP_DIR = Path(os.getenv("OPENAI_BATCH_TMP", "/opt/airflow/data/tmp_openai_batches")) / "tiktok_comments"
 TMP_DIR.mkdir(parents=True, exist_ok=True)
 PROGRESS_PATH = TMP_DIR / "tiktok_comments_analysis_progress.json"
 
@@ -767,7 +773,7 @@ def parse_and_update_results(**context):
 
 
 with DAG(
-    "tiktok_comments_analysis_dag",
+    "tiktok_comments_openai_analysis_dag",
     default_args=default_args,
     description="Batch AI analysis for TikTok comments -> Neo4j updates",
     schedule=None,
@@ -781,9 +787,35 @@ with DAG(
         "skip_analyzed": True,
     },
 ) as dag:
-    # stage_task = PythonOperator(task_id="stage_openai_batches", python_callable=stage_openai_batches)
+    stage_task = PythonOperator(task_id="stage_openai_batches", python_callable=stage_openai_batches)
     submit_task = PythonOperator(task_id="submit_and_poll_batches", python_callable=submit_and_poll_batches)
     parse_task = PythonOperator(task_id="parse_and_update_results", python_callable=parse_and_update_results)
-    #stage_task >> submit_task >> parse_task
-    submit_task >> parse_task
+    embed_summary_task = PythonOperator(
+        task_id="embed_comment_summary_embeddings",
+        python_callable=embed_comment_summary_embeddings_task,
+        op_kwargs={"neo4j_conn_id": neo4j_conn_id},
+    )
+    sync_topics_task = PythonOperator(
+        task_id="sync_comment_topics_from_mongo",
+        python_callable=sync_comment_topics_from_mongo_task,
+        op_kwargs={
+            "neo4j_conn_id": neo4j_conn_id,
+            "mongo_conn_id": mongo_conn_id,
+            "mongo_db_name": mongo_db_name,
+            "mongo_collection": mongo_videos_collection,
+        },
+    )
+    embed_topics_task = PythonOperator(
+        task_id="embed_comment_topic_embeddings",
+        python_callable=embed_comment_topic_embeddings_task,
+        op_kwargs={"neo4j_conn_id": neo4j_conn_id},
+    )
+    (
+        stage_task
+        >> submit_task
+        >> parse_task
+        >> embed_summary_task
+        >> sync_topics_task
+        >> embed_topics_task
+    )
 

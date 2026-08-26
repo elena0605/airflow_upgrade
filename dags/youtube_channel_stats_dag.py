@@ -29,7 +29,7 @@ default_args = {
 }
 
 # Files and directories paths
-INPUT_PATH = "/opt/airflow/dags/youtube_influencers.csv"
+INPUT_PATH = "/opt/airflow/data/input/youtube_influencers.csv"
 
 with DAG(
     "youtube_channel_stats_dag",
@@ -112,6 +112,8 @@ with DAG(
                     new_channel_ids.append(channel_id)
                     logger.info(f"Stored new channel: {username}")
 
+                except AirflowFailException:
+                    raise
                 except Exception as e:
                     logger.error(f"Error processing {username}: {e}")
                     continue

@@ -31,7 +31,7 @@ default_args = {
 with DAG(
     "youtube_video_comments",
      default_args=default_args,
-     description= 'A DAG to fetch, store, and transform YouTube video comments',
+     description= 'A DAG to fetch and store YouTube video comments',
      schedule=None,
      start_date=datetime(2025, 1, 19),
      catchup=False,
@@ -163,6 +163,8 @@ with DAG(
                         )
                         videos_processed += 1
 
+                    except AirflowFailException:
+                        raise
                     except Exception as e:
                         logger.error(f"Error processing video {video_id}: {e}")
                         continue
@@ -275,3 +277,4 @@ with DAG(
         # )
 
         # fetch_and_store_video_comments_task >> transform_to_graph_task
+    fetch_and_store_video_comments_task
